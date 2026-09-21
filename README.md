@@ -1,4 +1,4 @@
-# La Trobe Policy DB Chatbot — Backend
+# La Trobe Policy DB Chatbot - Backend
 
 Production-oriented FastAPI backend for the La Trobe University Policy DB Chatbot.
 

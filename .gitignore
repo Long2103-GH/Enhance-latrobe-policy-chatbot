@@ -143,3 +143,7 @@ reports/
 # Downloaded local ML models
 models/
 local_models/
+
+# Deprecated / derived files
+data/raw/policies_summary.csv
+scripts/seed_users.py

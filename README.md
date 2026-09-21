@@ -797,6 +797,12 @@ The main policy dataset is:
 backend/data/raw/policies.jsonl
 ```
 
+If `backend/data/raw/policies.jsonl` is not available in your local checkout, collect the policy data first by running the policy crawler:
+
+```bash
+python backend/data/raw/get_raw_policies/crawl_latrobe_policies.py
+```
+
 Build the retrieval index:
 
 ```bash

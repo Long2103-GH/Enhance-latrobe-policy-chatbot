@@ -1,0 +1,90 @@
+# =============================================================================
+# Lightweight dev stack:
+#   - Backend (FastAPI) with SQLite
+#   - Qdrant (vector search)
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: policy-db-chatbot-api:dev
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_started
+    environment:
+      # SQLite for simplicity.
+      DATABASE_URL: sqlite+aiosqlite:////app/storage/app.db
+
+      # Qdrant in remote mode (pointing at the container).
+      QDRANT_MODE: remote
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: policy_chunks
+
+      # Security
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+
+      # LLM provider chain
+      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+      LLM_FALLBACK_ENABLED: ${LLM_FALLBACK_ENABLED:-true}
+      LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-gemini}
+      LLM_FALLBACK_PROVIDER_2: ${LLM_FALLBACK_PROVIDER_2:-claude}
+
+      # DeepSeek (primary)
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY is required}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+
+      # Gemini (fallback 1)
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY is required}
+      GEMINI_GENERATION_MODEL: ${GEMINI_GENERATION_MODEL:-gemini-3.6-flash}
+
+      # Claude (fallback 2 — optional)
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-4-5}
+
+      # Embeddings
+      HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is required}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1024}
+
+      # App config
+      APP_ENV: development
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      LOG_FILE: /app/logs/app.log
+
+      # Paths
+      POLICY_JSONL_PATH: /app/data/raw/policies.jsonl
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the whole repo for hot-reload during development.
+      - .:/app
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - ./data:/app/data:ro
+    # Override command for reload.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - policy_net
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - qdrant_dev_data:/qdrant/storage
+    networks:
+      - policy_net
+
+volumes:
+  qdrant_dev_data:
+
+networks:
+  policy_net:
+    driver: bridge

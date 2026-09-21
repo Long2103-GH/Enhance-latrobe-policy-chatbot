@@ -1,10 +1,11 @@
 # La Trobe University Policy DB Chatbot
 
-A full-stack Retrieval-Augmented Generation (RAG) chatbot for answering questions about **La Trobe University policies, procedures, and internal documentation**.
+A full-stack **Retrieval-Augmented Generation (RAG)** chatbot for answering questions about **La Trobe University policies**.
 
-The system combines a browser-based frontend with a FastAPI backend, hybrid semantic + lexical retrieval, reranking, large language model generation, citation validation, authenticated user-scoped conversations, and security-focused backend infrastructure.
+The system combines a web-based frontend with a FastAPI backend, hybrid semantic + lexical retrieval, reranking, large language model (LLM) generation, citation validation, authenticated user-scoped conversations, and security-focused backend infrastructure.
 
-> **Academic project:** Student capstone prototype for CSE3PIT.
+> **Academic project:** Capstone prototype for CSE3CAP.
+
 > **Not an official La Trobe University service.**
 
 ---
@@ -19,15 +20,17 @@ The system combines a browser-based frontend with a FastAPI backend, hybrid sema
 * [Technology Stack](#technology-stack)
 * [Project Repository Structure](#project-repository-structure)
 * [Prerequisites](#prerequisites)
+* [Required API Keys and Secrets](#required-api-keys-and-secrets)
 * [Getting Started](#getting-started)
 
   * [1. Clone the Repository](#1-clone-the-repository)
-  * [2. Configure the Backend](#2-configure-the-backend)
+  * [2. Configure the Backend Environment](#2-configure-the-backend-environment)
   * [3. Install Backend Dependencies](#3-install-backend-dependencies)
   * [4. Create the Database](#4-create-the-database)
-  * [5. Prepare the Policy Index](#5-prepare-the-policy-index)
+  * [5. Build the Policy Retrieval Index](#5-build-the-policy-retrieval-index)
   * [6. Start the Backend](#6-start-the-backend)
   * [7. Start the Frontend](#7-start-the-frontend)
+* [Swagger UI and API Testing](#swagger-ui-and-api-testing)
 * [Docker](#docker)
 * [Authentication](#authentication)
 * [Using the Application](#using-the-application)
@@ -44,75 +47,81 @@ The system combines a browser-based frontend with a FastAPI backend, hybrid sema
 
 ---
 
-## Project Overview
+# Project Overview
 
 The **La Trobe University Policy DB Chatbot** provides a conversational interface over a collection of La Trobe University policy and procedure documents.
 
-Instead of requiring a user to manually search through large numbers of documents, the system:
+Instead of manually searching through large policy documents, a user can ask a natural-language question and receive a generated answer supported by relevant policy sources.
+
+The system:
 
 1. Accepts a natural-language question.
-2. Searches the policy knowledge base using multiple retrieval methods.
-3. Combines and reranks the most relevant evidence.
-4. Generates an answer using an LLM.
-5. Validates the generated citations against retrieved evidence.
-6. Returns the answer together with its supporting policy sources.
-7. Stores conversations on the backend so authenticated users can return to previous enquiries.
+2. Optionally rewrites the query.
+3. Searches the policy knowledge base using semantic and lexical retrieval.
+4. Combines retrieval results using Reciprocal Rank Fusion (RRF).
+5. Reranks the retrieved candidates.
+6. Builds a grounded generation prompt.
+7. Generates an answer using the configured LLM provider.
+8. Validates citations against retrieved evidence.
+9. Returns the answer together with its supporting sources.
+10. Stores the conversation for the authenticated user.
 
-The application is designed around **grounded generation**, meaning answers should be based on retrieved policy evidence rather than relying solely on the language model's general knowledge.
+The application is designed around **grounded generation**, meaning the answer should be based on retrieved policy evidence rather than relying only on the language model's general knowledge.
 
 ---
 
-## Problem Statement
+# Problem Statement
 
 University policies and procedures can be lengthy, distributed across multiple documents, and difficult to search efficiently.
 
-Typical users may need to answer questions such as:
+Users may need answers to questions such as:
 
 * What are the grounds for special consideration?
 * How much personal leave can a continuing staff member accrue?
 * What is the process for purchasing research equipment?
 * What should be checked when a student cannot access a Learning Portal subject site?
 
-Traditional keyword search can return many results without explaining the answer in context.
+Traditional keyword search may return documents without directly explaining the answer or identifying the most relevant passages.
 
-This project addresses that problem by providing a conversational RAG interface that retrieves relevant policy evidence and uses that evidence to generate a structured answer with citations.
+This project addresses the problem through a conversational RAG system that retrieves relevant policy evidence and uses that evidence to generate structured answers with citations.
 
 ---
 
-## Key Features
+# Key Features
 
-### RAG and Knowledge Retrieval
+## RAG and Knowledge Retrieval
 
 * Hybrid semantic and lexical retrieval.
 * Vector search using **Qdrant**.
 * Lexical search using **SQLite FTS5**.
-* Reciprocal Rank Fusion (RRF) for combining retrieval results.
+* Reciprocal Rank Fusion (RRF).
 * Candidate reranking before generation.
-* Query rewriting support.
-* Policy-aware chunking.
+* Query rewriting.
+* Policy-aware text chunking.
 * Citation tracking and validation.
-* No-evidence handling and escalation behaviour.
+* No-evidence handling.
+* Grounding and escalation safeguards.
 
-### AI Generation
+## AI Generation
 
-The backend includes provider adapters for:
+The backend supports multiple LLM providers through provider adapters:
 
-* Google Gemini
-* Anthropic Claude
-* DeepSeek
+* **DeepSeek** — primary generation provider.
+* **Google Gemini** — fallback generation provider.
+* **Anthropic Claude** — fallback generation provider.
 
-The provider abstraction allows the generation layer to support multiple LLM backends without changing the rest of the RAG pipeline.
+The provider abstraction allows the generation layer to switch providers without changing the rest of the application architecture.
 
-### Conversations
+## Conversations
 
-* Authenticated, user-scoped conversations.
+* Authenticated user-scoped conversations.
 * Conversation creation and retrieval.
 * Conversation renaming.
 * Conversation deletion.
 * Persistent server-side conversation history.
 * Last selected conversation ID retained locally by the frontend.
 
-### Frontend
+## Frontend
 
 The frontend is a lightweight vanilla HTML/CSS/JavaScript application with:
 
@@ -132,10 +141,12 @@ The frontend is a lightweight vanilla HTML/CSS/JavaScript application with:
 * Settings panel.
 * Non-question shortcut responses for common greetings, acknowledgements, and help requests.
 
-### Backend Reliability and Security
+## Backend Reliability and Security
 
 * JWT authentication.
-* Auth provider abstraction with JWT, Auth0, and mock providers.
+* Authentication provider abstraction.
+* Auth0 support.
+* Mock authentication for controlled testing.
 * Request validation.
 * Rate limiting.
 * Security headers.
@@ -150,7 +161,7 @@ The frontend is a lightweight vanilla HTML/CSS/JavaScript application with:
 
 ---
 
-## System Architecture
+# System Architecture
 
 At a high level:
 
@@ -158,7 +169,8 @@ At a high level:
                          ┌─────────────────────────┐
                          │       Web Browser       │
                          │                         │
-                         │  Ask La Trobe Frontend  │
+                         │   Ask La Trobe          │
+                         │      Frontend           │
                          └────────────┬────────────┘
                                       │
                                       │ HTTP / JSON
@@ -166,7 +178,7 @@ At a high level:
                          ┌─────────────────────────┐
                          │       FastAPI API       │
                          │                         │
-                         │ Auth / Chat / Convos    │
+                         │   Auth / Chat / Convos  │
                          └────────────┬────────────┘
                                       │
                                       ▼
@@ -178,26 +190,26 @@ At a high level:
                          │ Validate → Audit        │
                          └────────────┬────────────┘
                                       │
-                     ┌────────────────┼────────────────┐
-                     │                │                │
-                     ▼                ▼                ▼
-              ┌────────────┐  ┌────────────┐  ┌──────────────┐
-              │   Qdrant   │  │ SQLite FTS │  │  LLM Provider│
-              │ Vector DB   │  │  Lexical   │  │ Gemini/      │
-              │             │  │  Retrieval │  │ Claude/      │
-              └────────────┘  └────────────┘  │ DeepSeek     │
-                                              └──────────────┘
-                                                     
-                                      ▼
-                         ┌─────────────────────────┐
-                         │   Citation Validation   │
-                         │   + Guardrails + Audit  │
-                         └─────────────────────────┘
+                  ┌───────────────────┼───────────────────┐
+                  │                   │                   │
+                  ▼                   ▼                   ▼
+          ┌──────────────┐   ┌──────────────┐   ┌────────────────┐
+          │    Qdrant    │   │  SQLite FTS5 │   │  LLM Providers │
+          │  Vector DB   │   │   Lexical    │   │  DeepSeek      │
+          │              │   │   Retrieval  │   │  Gemini        │
+          └──────────────┘   └──────────────┘   │  Claude        │
+                                                └────────────────┘
+                                                         │
+                                                         ▼
+                                      ┌─────────────────────────┐
+                                      │   Citation Validation   │
+                                      │   + Guardrails + Audit  │
+                                      └─────────────────────────┘
 ```
 
 ---
 
-## RAG Pipeline
+# RAG Pipeline
 
 The main RAG flow is:
 
@@ -240,21 +252,21 @@ Vector Retrieval   Lexical Retrieval
   + Citations    No-Evidence Response
 ```
 
-### Why hybrid retrieval?
+## Why hybrid retrieval?
 
-Semantic retrieval is useful when the user's wording differs from the wording in the source document.
+Semantic retrieval is useful when the user's wording differs from the wording used in the source document.
 
 Lexical retrieval is useful when exact terminology, policy titles, section names, identifiers, or specific phrases matter.
 
 Using both approaches provides complementary retrieval signals.
 
-### Why reranking?
+## Why reranking?
 
-Initial retrieval intentionally produces a broader candidate set. Reranking then prioritises the most relevant chunks before the language model receives the final context.
+Initial retrieval intentionally produces a broader candidate set. Reranking then prioritises the most relevant chunks before they are supplied to the generation layer.
 
-### Why citation validation?
+## Why citation validation?
 
-The system should not treat an LLM-generated citation as trustworthy merely because the model produced it. Citation validation checks the generated references against the retrieved policy evidence.
+The system should not assume that a citation generated by an LLM is automatically valid. Citation validation checks generated references against the evidence retrieved from the policy knowledge base.
 
 ---
 
@@ -285,8 +297,8 @@ The frontend has **no Node.js build pipeline** and can be served directly as sta
 * Qdrant
 * SQLite FTS5
 * JWT authentication
-* Optional Auth0 integration
-* Gemini / Claude / DeepSeek provider adapters
+* Auth0 integration support
+* DeepSeek / Gemini / Claude provider adapters
 
 ## AI / Retrieval
 
@@ -310,17 +322,19 @@ The frontend has **no Node.js build pipeline** and can be served directly as sta
 
 # 📂 Project Repository Structure
 
-The following is the project working-directory structure. Some directories such as local storage, logs, generated package metadata, and test artifacts are generated or ignored and therefore may not exist in a fresh Git clone until the project is run.
+The following represents the project working-directory structure.
+
+Some directories and files are generated locally or intentionally ignored by Git. They may therefore not appear in a fresh clone until the application is configured and executed.
 
 ```text
 📂 Project Repository Structure
 
-├── backend                                      # FastAPI backend and RAG engine
-│   ├── _pending                                 # Experimental or pending backend implementations
+├── backend                                      # FastAPI backend, database and RAG engine
+│   ├── _pending                                 # Experimental or pending implementations
 │   │   └── embedding_service_local.py
 │   ├── app                                      # Main backend application package
-│   │   ├── api                                  # HTTP API layer and route definitions
-│   │   │   ├── routes                              # Individual API endpoint modules
+│   │   ├── api                                  # HTTP API layer
+│   │   │   ├── routes                             # API endpoint modules
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── admin.py
 │   │   │   │   ├── auth.py
@@ -328,18 +342,18 @@ The following is the project working-directory structure. Some directories such 
 │   │   │   │   ├── conversations.py
 │   │   │   │   └── health.py
 │   │   │   ├── __init__.py
-│   │   │   ├── dependencies.py                  # Shared FastAPI dependencies
-│   │   │   └── router.py                         # API router registration
-│   │   ├── auth                                  # Authentication abstraction layer
-│   │   │   ├── providers                         # Authentication provider implementations
+│   │   │   ├── dependencies.py                   # Shared FastAPI dependencies
+│   │   │   └── router.py                          # API route registration
+│   │   ├── auth                                 # Authentication abstraction
+│   │   │   ├── providers                        # Authentication provider implementations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── auth0.py
 │   │   │   │   ├── jwt.py
 │   │   │   │   └── mock.py
 │   │   │   ├── __init__.py
 │   │   │   ├── base.py                            # Auth provider interface
-│   │   │   └── factory.py                         # Provider selection
-│   │   ├── core                                  # Configuration, security, logging and limits
+│   │   │   └── factory.py                         # Auth provider selection
+│   │   ├── core                                 # Configuration, security, logging and limits
 │   │   │   ├── __init__.py
 │   │   │   ├── config.py
 │   │   │   ├── core_logging.py
@@ -347,74 +361,74 @@ The following is the project working-directory structure. Some directories such 
 │   │   │   ├── rate_limit.py
 │   │   │   ├── security.py
 │   │   │   └── security_filters.py
-│   │   ├── db                                    # Database engine, models and repositories
+│   │   ├── db                                   # Database engine, models and repositories
 │   │   │   ├── __init__.py
 │   │   │   ├── database.py
 │   │   │   ├── models.py
 │   │   │   └── repositories.py
-│   │   ├── middleware                             # HTTP security middleware
+│   │   ├── middleware                            # HTTP security middleware
 │   │   │   ├── __init__.py
 │   │   │   └── security_headers.py
-│   │   ├── rag                                  # Core RAG data structures and ranking logic
+│   │   ├── rag                                 # RAG data models, chunking and scoring
 │   │   │   ├── __init__.py
 │   │   │   ├── chunker.py
 │   │   │   ├── citation.py
 │   │   │   ├── models.py
 │   │   │   └── scoring.py
-│   │   ├── schemas                               # Pydantic request/response schemas
+│   │   ├── schemas                              # Pydantic request and response schemas
 │   │   │   ├── __init__.py
 │   │   │   ├── auth.py
 │   │   │   ├── chat.py
 │   │   │   ├── common.py
 │   │   │   ├── conversation.py
 │   │   │   └── policy.py
-│   │   ├── services                              # Business logic and RAG services
-│   │   │   ├── providers                         # LLM provider adapters
+│   │   ├── services                             # Application business logic and RAG services
+│   │   │   ├── providers                        # LLM provider adapters
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── base.py
 │   │   │   │   ├── claude_provider.py
 │   │   │   │   ├── deepseek_provider.py
 │   │   │   │   └── gemini_provider.py
 │   │   │   ├── __init__.py
-│   │   │   ├── audit_service.py                  # Audit events and traceability
-│   │   │   ├── auth_service.py                   # Authentication-related business logic
-│   │   │   ├── conversation_service.py           # Conversation management
-│   │   │   ├── embedding_service.py              # Text embedding generation
-│   │   │   ├── generation_service.py             # LLM generation orchestration
-│   │   │   ├── ingestion_service.py              # Policy ingestion pipeline
-│   │   │   ├── lexical_store.py                  # SQLite FTS5 retrieval
-│   │   │   ├── prompt_service.py                 # Prompt/context construction
-│   │   │   ├── query_rewriter.py                 # Query rewriting
-│   │   │   ├── rag_service.py                    # End-to-end RAG orchestration
-│   │   │   ├── reranking_service.py              # Candidate reranking
-│   │   │   ├── retrieval_service.py              # Hybrid retrieval orchestration
-│   │   │   ├── validation_service.py             # Answer/citation validation
-│   │   │   └── vector_store.py                   # Qdrant vector retrieval
-│   │   ├── utils                                 # Small shared utilities
+│   │   │   ├── audit_service.py                 # Audit events and traceability
+│   │   │   ├── auth_service.py                  # Authentication business logic
+│   │   │   ├── conversation_service.py          # Conversation management
+│   │   │   ├── embedding_service.py             # Embedding generation
+│   │   │   ├── generation_service.py            # LLM generation orchestration
+│   │   │   ├── ingestion_service.py             # Policy ingestion pipeline
+│   │   │   ├── lexical_store.py                 # SQLite FTS5 retrieval
+│   │   │   ├── prompt_service.py                # Prompt and context construction
+│   │   │   ├── query_rewriter.py                # Query rewriting
+│   │   │   ├── rag_service.py                   # End-to-end RAG orchestration
+│   │   │   ├── reranking_service.py             # Retrieval candidate reranking
+│   │   │   ├── retrieval_service.py             # Hybrid retrieval orchestration
+│   │   │   ├── validation_service.py            # Answer and citation validation
+│   │   │   └── vector_store.py                  # Qdrant vector retrieval
+│   │   ├── utils                                # Shared utility functions
 │   │   │   ├── __init__.py
 │   │   │   ├── hashing.py
 │   │   │   └── text.py
 │   │   ├── __init__.py
 │   │   └── main.py                              # FastAPI application entry point
 │   ├── data                                    # Policy, evaluation and generated data
-│   │   ├── evaluation                           # RAG evaluation inputs and expected results
+│   │   ├── evaluation                          # RAG evaluation datasets
 │   │   │   ├── expected_answers.json
 │   │   │   └── questions.json
 │   │   ├── processed                           # Processed policy data
-│   │   ├── raw                                # Source policy dataset and crawler
-│   │   │   ├── get_raw_policies                # Policy collection/crawling utilities
+│   │   ├── raw                                # Source policy data and collection tools
+│   │   │   ├── get_raw_policies                # Policy collection utilities
 │   │   │   │   ├── crawl_latrobe_policies.py
 │   │   │   │   └── requirements.txt
-│   │   │   ├── policies.jsonl                  # Main policy source dataset
-│   │   │   └── policies_summary.csv            # Derived local summary file
+│   │   │   ├── policies.jsonl                  # Main policy dataset
+│   │   │   └── policies_summary.csv            # Derived summary data
 │   │   └── test_artifacts                      # Test-only generated artifacts
 │   │       └── seed_credentials.csv
-│   ├── deploy                                  # Deployment configuration and notes
+│   ├── deploy                                  # Deployment configuration and documentation
 │   │   ├── nginx.conf
 │   │   └── README.md
-│   ├── logs                                    # Runtime application logs (generated/ignored)
+│   ├── logs                                    # Runtime application logs
 │   │   └── app.log
-│   ├── policy_db_chatbot.egg-info              # Python package metadata (generated/ignored)
+│   ├── policy_db_chatbot.egg-info              # Generated Python package metadata
 │   │   ├── dependency_links.txt
 │   │   ├── PKG-INFO
 │   │   ├── SOURCES.txt
@@ -428,7 +442,7 @@ The following is the project working-directory structure. Some directories such 
 │   │   ├── rebuild_index.py
 │   │   ├── seed_production_db.py
 │   │   └── seed_users.py
-│   ├── storage                                 # Local databases and Qdrant storage (generated/ignored)
+│   ├── storage                                 # Local database and Qdrant storage
 │   │   ├── qdrant                              # Local Qdrant data
 │   │   │   ├── collection
 │   │   │   │   └── policy_chunks
@@ -437,7 +451,7 @@ The following is the project working-directory structure. Some directories such 
 │   │   ├── qdrant_test                         # Test Qdrant data
 │   │   │   └── meta.json
 │   │   └── app.db                              # Local application database
-│   ├── tests                                   # Automated backend test suite
+│   ├── tests                                   # Automated backend tests
 │   │   ├── __init__.py
 │   │   ├── conftest.py
 │   │   ├── test_auth.py
@@ -449,33 +463,33 @@ The following is the project working-directory structure. Some directories such 
 │   ├── docker-compose.dev.yml                  # Development container stack
 │   ├── docker-compose.yml                      # Deployment-oriented container stack
 │   ├── Dockerfile                              # Backend container image
-│   ├── Makefile                                # Backend development shortcuts
-│   ├── pyproject.toml                          # Python project/tool configuration
+│   ├── Makefile                                # Backend development commands
+│   ├── pyproject.toml                          # Python project and tool configuration
 │   ├── README.md                               # Backend-specific documentation
 │   └── requirements.txt                        # Backend Python dependencies
-├── frontend                                   # Browser-based Ask La Trobe client
-│   ├── app                                    # Frontend application modules
+├── frontend                                  # Static browser-based Ask La Trobe client
+│   ├── app                                   # Frontend application modules
 │   │   ├── api.js                              # Backend API client
-│   │   ├── chat.js                             # Chat request/controller logic
-│   │   ├── composer.js                          # Input composer and controls
-│   │   ├── config.js                            # Frontend runtime configuration
-│   │   ├── main.js                              # Application bootstrap/render loop
-│   │   ├── markdown.js                          # Markdown and citation rendering
-│   │   ├── settings.js                          # Settings panel
-│   │   ├── shortcuts.js                         # Non-question shortcut matching
-│   │   ├── store.js                             # Frontend application state
-│   │   ├── theme.js                             # Theme management
-│   │   └── thread.js                            # Chat thread rendering
-│   ├── assets                                  # Static branding assets
+│   │   ├── chat.js                             # Chat controller and request handling
+│   │   ├── composer.js                         # Question input and controls
+│   │   ├── config.js                           # Frontend runtime configuration
+│   │   ├── main.js                             # Frontend bootstrap and render loop
+│   │   ├── markdown.js                         # Markdown and citation rendering
+│   │   ├── settings.js                         # Settings panel
+│   │   ├── shortcuts.js                        # Non-question shortcut matching
+│   │   ├── store.js                            # Frontend application state
+│   │   ├── theme.js                            # Theme management
+│   │   └── thread.js                           # Chat thread rendering
+│   ├── assets                                # Static images and branding
 │   │   ├── favicon.ico
 │   │   └── latrobe-logo.png
-│   ├── styles                                  # Application CSS
+│   ├── styles                                # Frontend styling
 │   │   ├── base.css
 │   │   ├── components.css
 │   │   ├── layouts.css
 │   │   └── tokens.css
-│   └── index.html                              # Frontend entry page
-└── README.md                                  # Project-level documentation
+│   └── index.html                            # Frontend entry page
+└── README.md                                # Project-level documentation
 ```
 
 ---
@@ -487,11 +501,186 @@ For local development, install:
 * Git
 * Python 3.11 or later
 * A modern web browser
-* Docker Desktop, if using Docker
-
-An API credential for the configured embedding/LLM providers may also be required depending on the selected environment configuration.
+* Docker Desktop, if Docker is being used
 
 The frontend itself does **not** require Node.js or `npm`.
+
+You will also need credentials for the external services used by the backend.
+
+---
+
+# Required API Keys and Secrets
+
+The frontend contains **no API keys or provider secrets**.
+
+All provider credentials and backend secrets belong in:
+
+```text
+backend/.env
+```
+
+The repository includes:
+
+```text
+backend/.env.example
+```
+
+as the configuration template.
+
+## 1. DeepSeek API Key — required for the primary LLM
+
+DeepSeek is configured as the **main generation provider**.
+
+You need a DeepSeek API key from your DeepSeek account.
+
+Configure the corresponding DeepSeek API-key variable in:
+
+```text
+backend/.env
+```
+
+The exact variable name should match the `DEEPSEEK_*` entry provided in `backend/.env.example`.
+
+Without a valid DeepSeek credential, the primary generation provider cannot make LLM requests.
+
+---
+
+## 2. Google Gemini API Key — required if Gemini fallback is enabled
+
+Gemini is configured as the **first fallback generation provider**.
+
+You need a Google Gemini API key if your configured provider chain can fall back to Gemini.
+
+Configure the corresponding Gemini API-key variable in:
+
+```text
+backend/.env
+```
+
+The exact variable name should match the `GEMINI_*` entry provided in `backend/.env.example`.
+
+The configured Gemini generation model is controlled separately through the generation-model setting.
+
+---
+
+## 3. Anthropic API Key — required if Claude fallback is enabled
+
+Claude is configured as the **second fallback generation provider**.
+
+You need an Anthropic API key if your configured provider chain can fall back to Claude.
+
+Configure the corresponding Anthropic API-key variable in:
+
+```text
+backend/.env
+```
+
+The exact variable name should match the `ANTHROPIC_*` entry provided in `backend/.env.example`.
+
+---
+
+## 4. Hugging Face Token — required for embedding generation
+
+The project uses:
+
+```text
+BAAI/bge-m3
+```
+
+for embeddings.
+
+A Hugging Face token may be required by the configured embedding service/model access.
+
+Configure:
+
+```text
+HF_TOKEN
+```
+
+in:
+
+```text
+backend/.env
+```
+
+The embedding configuration uses a **1024-dimensional** vector representation.
+
+---
+
+## 5. JWT Secret — required for JWT authentication
+
+The backend signs and validates JWT access tokens.
+
+A strong random secret must be configured for the JWT signing key in:
+
+```text
+backend/.env
+```
+
+Use the JWT-secret variable defined by:
+
+```text
+backend/.env.example
+```
+
+Do not use a weak example value in a real deployment.
+
+For local development, each developer should generate and use their own secret.
+
+---
+
+## 6. Auth0 credentials — only when Auth0 authentication is selected
+
+Auth0 is optional.
+
+When the backend is configured to use the Auth0 provider, the required Auth0 domain, audience, client configuration and related settings must be supplied in:
+
+```text
+backend/.env
+```
+
+When JWT authentication is being used locally, Auth0 credentials are not required.
+
+---
+
+## 7. Qdrant credentials — only for remote Qdrant deployments
+
+For the local Qdrant mode used during development, the project stores Qdrant data locally and does not require a hosted Qdrant API key.
+
+If the backend is configured for a remote Qdrant deployment, configure:
+
+* Qdrant URL
+* Qdrant API key
+
+through the Qdrant environment variables defined in:
+
+```text
+backend/.env.example
+```
+
+---
+
+## Credential summary
+
+| Service          | Purpose                  | Required?                                                        |
+| ---------------- | ------------------------ | ---------------------------------------------------------------- |
+| DeepSeek         | Primary LLM generation   | Yes for primary provider                                         |
+| Google Gemini    | LLM fallback             | Required when Gemini fallback is enabled                         |
+| Anthropic Claude | LLM fallback             | Required when Claude fallback is enabled                         |
+| Hugging Face     | Embedding model access   | Required for embedding generation where authentication is needed |
+| JWT secret       | Local JWT authentication | Yes for JWT authentication                                       |
+| Auth0            | External authentication  | Only when Auth0 provider is selected                             |
+| Qdrant API key   | Hosted Qdrant            | Only for remote Qdrant mode                                      |
+
+**Always use `backend/.env.example` as the authoritative list of environment-variable names.**
+
+Never commit:
+
+```text
+backend/.env
+```
+
+or any other file containing API keys, passwords, tokens, or signing secrets.
 
 ---
 
@@ -510,11 +699,9 @@ Verify the repository:
 git status
 ```
 
-A clean clone should report that the working tree is clean.
-
 ---
 
-## 2. Configure the Backend
+## 2. Configure the Backend Environment
 
 Move into the backend directory:
 
@@ -522,43 +709,35 @@ Move into the backend directory:
 cd backend
 ```
 
-Create the environment file from the committed template:
+Create the environment file:
+
+### Windows Git Bash
 
 ```bash
 cp .env.example .env
 ```
 
-On Windows PowerShell, the equivalent is:
+### Windows PowerShell
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Open `backend/.env` and configure the values required for your environment.
+### macOS / Linux
 
-Typical configuration includes:
-
-* application environment
-* database connection
-* JWT configuration
-* authentication provider settings
-* embedding model settings
-* Hugging Face credentials where required
-* LLM provider credentials
-* Qdrant configuration
-* retrieval settings
-* logging settings
-
-### Important
-
-Never commit:
-
-```text
-.env
-.env.* 
+```bash
+cp .env.example .env
 ```
 
-Secrets must remain local or be supplied through the deployment environment.
+Open:
+
+```text
+backend/.env
+```
+
+and enter your required API keys and secrets.
+
+At minimum, make sure the credentials required by your selected LLM provider, embedding service, and authentication provider are configured.
 
 ---
 
@@ -598,46 +777,46 @@ pip install -r requirements.txt
 
 ## 4. Create the Database
 
-From the `backend` directory:
+From the `backend/` directory:
 
 ```bash
 python -m scripts.create_database
 ```
 
-This creates the local application database using the configured database URL.
+For local development, the project uses SQLite through the configured database URL.
 
-For local development the project is configured to use SQLite.
+The resulting database file is local runtime data and is not intended for source control.
 
 ---
 
-## 5. Prepare the Policy Index
+## 5. Build the Policy Retrieval Index
 
-The repository contains the policy dataset under:
+The main policy dataset is:
 
 ```text
 backend/data/raw/policies.jsonl
 ```
 
-Run the ingestion pipeline:
+Build the retrieval index:
 
 ```bash
 python -m scripts.ingest_policies
 ```
 
-The ingestion process prepares policy content for retrieval by:
+The ingestion pipeline:
 
-* loading the policy dataset
-* normalising and chunking content
-* generating embeddings
-* storing vector representations in Qdrant
-* building the lexical FTS5 index
-* generating the metadata required by the retrieval layer
+1. Loads policy data.
+2. Normalises text.
+3. Splits policies into retrieval chunks.
+4. Generates embeddings.
+5. Stores vector data in Qdrant.
+6. Builds the SQLite FTS5 lexical index.
 
-The first ingestion run may take longer because embedding models may need to be downloaded and initialized.
+The initial run can take longer because the embedding model may need to be downloaded and initialized.
 
 ### Rebuild the index
 
-When the underlying policy dataset or indexing configuration changes:
+When policy data or indexing configuration changes:
 
 ```bash
 python -m scripts.rebuild_index
@@ -653,22 +832,34 @@ From `backend/`:
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The API will then be available at:
+Backend:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-FastAPI's interactive documentation is available at:
+API base:
+
+```text
+http://127.0.0.1:8000/api/v1
+```
+
+Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-The API root used by the frontend is:
+ReDoc:
 
 ```text
-http://127.0.0.1:8000/api/v1
+http://127.0.0.1:8000/redoc
+```
+
+OpenAPI JSON:
+
+```text
+http://127.0.0.1:8000/openapi.json
 ```
 
 ---
@@ -677,9 +868,7 @@ http://127.0.0.1:8000/api/v1
 
 Open a second terminal from the repository root.
 
-The frontend is static, so it does not require a build step.
-
-For example:
+The frontend is static and does not require a build process.
 
 ```bash
 python -m http.server 5500 --directory frontend
@@ -691,7 +880,154 @@ Open:
 http://127.0.0.1:5500
 ```
 
-The frontend automatically uses the local backend API when running on `localhost` or `127.0.0.1`.
+When running locally on `localhost` or `127.0.0.1`, the frontend is configured to use:
+
+```text
+http://127.0.0.1:8000/api/v1
+```
+
+---
+
+# Swagger UI and API Testing
+
+FastAPI provides an interactive API testing interface through Swagger UI.
+
+Once the backend is running, open:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Swagger UI allows developers to inspect the available endpoints, schemas, parameters and responses and send requests directly to the running backend.
+
+## Recommended API testing flow
+
+### 1. Check the health endpoint
+
+Open the health endpoint in Swagger and use:
+
+```text
+Try it out
+```
+
+then:
+
+```text
+Execute
+```
+
+This verifies that the API is running.
+
+---
+
+### 2. Test authentication
+
+Use:
+
+```text
+POST /api/v1/auth/login
+```
+
+Click:
+
+```text
+Try it out
+```
+
+Enter the test user's credentials and execute the request.
+
+A successful login returns an access token.
+
+---
+
+### 3. Authorize protected endpoints
+
+After receiving a token, use the Swagger **Authorize** control if it is exposed by the generated OpenAPI security scheme.
+
+Enter the bearer token in the format expected by the Swagger security dialog, typically:
+
+```text
+Bearer <access_token>
+```
+
+After authorizing, protected endpoints can be tested directly from Swagger UI.
+
+---
+
+### 4. Test the current user endpoint
+
+Use:
+
+```text
+GET /api/v1/auth/me
+```
+
+This verifies that the token is valid and identifies the authenticated user.
+
+---
+
+### 5. Test the chat endpoint
+
+Use:
+
+```text
+POST /api/v1/chat
+```
+
+The endpoint accepts the user's question together with the conversation context and optional conversation ID.
+
+A typical request structure is:
+
+```json
+{
+  "query": "What are the grounds for approving a special consideration request?",
+  "conversation": [],
+  "conversation_id": null
+}
+```
+
+The exact request and response schema displayed in Swagger is authoritative for the current backend implementation.
+
+A successful response can include:
+
+* generated answer
+* policy citations
+* grounding status
+* confidence
+* escalation status
+* disclaimer
+* request ID
+* conversation ID
+
+---
+
+### 6. Test conversation endpoints
+
+Swagger can also be used to test:
+
+```text
+GET    /api/v1/conversations
+POST   /api/v1/conversations
+GET    /api/v1/conversations/{id}
+PATCH  /api/v1/conversations/{id}
+DELETE /api/v1/conversations/{id}
+```
+
+These endpoints allow developers to verify conversation creation, retrieval, renaming, deletion and user-level access control.
+
+---
+
+### 7. Test error handling
+
+Swagger is also useful for checking expected error responses, including:
+
+* `400` class validation errors
+* `401` unauthorised requests
+* `404` missing resources
+* `429` rate limiting
+* other structured API failures
+
+Swagger therefore provides a convenient way to validate the backend independently of the frontend.
 
 ---
 
@@ -699,63 +1035,73 @@ The frontend automatically uses the local backend API when running on `localhost
 
 Docker is provided for containerised backend development and deployment.
 
-From the `backend/` directory:
+From `backend/`:
 
-### Development stack
+## Development stack
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-### Deployment-oriented stack
+## Deployment-oriented stack
 
 ```bash
 docker compose up --build
 ```
 
-To stop the containers:
+Stop the deployment stack:
 
 ```bash
 docker compose down
 ```
 
-To stop the development stack:
+Stop the development stack:
 
 ```bash
 docker compose -f docker-compose.dev.yml down
 ```
 
-For deployment-specific information, see:
+For deployment-specific information:
 
 ```text
 backend/deploy/README.md
 ```
 
-The deployment configuration includes Nginx and containerised backend infrastructure.
-
 ---
 
 # Authentication
 
-The backend separates authentication from the rest of the application through an authentication provider abstraction.
+The backend separates authentication from application logic through an authentication-provider abstraction.
 
-Supported provider implementations include:
+Supported implementations include:
 
 * JWT
 * Auth0
-* Mock authentication for controlled development/testing scenarios
+* Mock authentication
 
 The active provider is selected through backend configuration.
 
-The frontend communicates with authenticated endpoints using a bearer token.
+For JWT authentication, the general flow is:
 
-The backend enforces user-scoped access to conversations, meaning a user's conversation data belongs to that authenticated user rather than being shared globally.
+```text
+User credentials
+      ↓
+POST /auth/login
+      ↓
+JWT access token
+      ↓
+Authorization: Bearer <token>
+      ↓
+Protected API endpoints
+```
+
+The backend enforces user-scoped conversation access.
 
 ---
 
 # Using the Application
 
-A typical user flow is:
+A typical application flow is:
 
 ```text
 1. Open the frontend
@@ -766,20 +1112,22 @@ A typical user flow is:
         ↓
 4. Backend validates the request
         ↓
-5. Hybrid retrieval finds relevant policy evidence
+5. Query is processed for retrieval
         ↓
-6. Candidates are reranked
+6. Hybrid retrieval finds relevant policy evidence
         ↓
-7. LLM generates a grounded answer
+7. Candidates are reranked
         ↓
-8. Citations are validated
+8. LLM generates a grounded answer
         ↓
-9. Answer + citations are returned
+9. Citations are validated
         ↓
-10. Conversation is stored server-side
+10. Answer + citations are returned
+        ↓
+11. Conversation is stored server-side
 ```
 
-The interface supports:
+The frontend supports:
 
 * starting a new enquiry
 * reopening previous conversations
@@ -789,8 +1137,8 @@ The interface supports:
 * changing theme
 * copying answers
 * regenerating answers
-* stopping an in-progress generation
-* using suggested questions
+* stopping generation
+* suggested questions
 * voice input where supported
 
 ---
@@ -803,7 +1151,7 @@ The primary policy dataset is:
 backend/data/raw/policies.jsonl
 ```
 
-The policy collection tooling is under:
+Policy collection tools are under:
 
 ```text
 backend/data/raw/get_raw_policies/
@@ -815,9 +1163,7 @@ The crawler is:
 backend/data/raw/get_raw_policies/crawl_latrobe_policies.py
 ```
 
-The ingestion pipeline transforms policy content into retrieval-ready representations.
-
-### Main stages
+## Ingestion flow
 
 ```text
 Raw Policy Documents
@@ -837,37 +1183,35 @@ SQLite FTS5 Lexical Index
 Ready for Hybrid Retrieval
 ```
 
-### Index stores
+## Qdrant
 
-**Qdrant**
+Qdrant stores policy embeddings and associated metadata for semantic retrieval.
 
-Stores vector embeddings and metadata for semantic retrieval.
+## SQLite FTS5
 
-**SQLite FTS5**
+SQLite FTS5 stores searchable policy text for lexical retrieval.
 
-Stores searchable policy text for lexical retrieval.
+## Derived files
 
-### Data files
-
-`policies_summary.csv` is a derived summary file and is intentionally excluded from source control.
+`policies_summary.csv` is a derived local summary file and is intentionally excluded from source control.
 
 ---
 
 # Evaluation and Testing
 
-The backend includes automated tests under:
+Automated backend tests are located under:
 
 ```text
 backend/tests/
 ```
 
-Run the complete test suite from `backend/`:
+Run the full test suite:
 
 ```bash
 pytest
 ```
 
-Useful test areas include:
+The test suite covers areas including:
 
 * authentication
 * policy chunking
@@ -876,7 +1220,7 @@ Useful test areas include:
 * RAG guardrails
 * retrieval
 
-### RAG evaluation
+## RAG Evaluation
 
 Evaluation inputs are stored under:
 
@@ -884,13 +1228,13 @@ Evaluation inputs are stored under:
 backend/data/evaluation/
 ```
 
-Run the evaluation script:
+Run:
 
 ```bash
 python -m scripts.evaluate_rag
 ```
 
-The evaluation dataset can be extended through:
+Evaluation datasets can be updated through:
 
 ```text
 backend/data/evaluation/questions.json
@@ -901,30 +1245,26 @@ backend/data/evaluation/expected_answers.json
 
 # API Overview
 
-The backend exposes versioned API routes under:
+The backend API is versioned under:
 
 ```text
 /api/v1
 ```
 
-Main areas include:
-
-### Authentication
+## Authentication
 
 ```text
 POST /api/v1/auth/login
 GET  /api/v1/auth/me
 ```
 
-### Chat
+## Chat
 
 ```text
 POST /api/v1/chat
 ```
 
-The chat endpoint accepts the current question, conversation context, and optional conversation ID, then returns the generated answer and supporting metadata.
-
-### Conversations
+## Conversations
 
 ```text
 GET    /api/v1/conversations
@@ -934,13 +1274,13 @@ PATCH  /api/v1/conversations/{id}
 DELETE /api/v1/conversations/{id}
 ```
 
-### Health
+## Health
 
 ```text
 GET /api/v1/health
 ```
 
-For the complete API schema, start the backend and open:
+For the complete request and response schemas, use Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -950,55 +1290,56 @@ http://127.0.0.1:8000/docs
 
 # Security and Reliability
 
-The project includes several defensive controls intended to make the prototype closer to a production-style backend.
+The project includes several controls intended to make the prototype closer to a production-style backend.
 
-### Authentication and authorisation
+## Authentication and authorisation
 
-* JWT-based authentication.
-* Provider abstraction for Auth0 and other providers.
+* JWT authentication.
+* Authentication-provider abstraction.
+* Auth0 support.
 * User-scoped conversation access.
 * Protected API endpoints.
 
-### API protection
+## API protection
 
 * Request validation.
 * Rate limiting.
 * Structured API errors.
-* Request IDs for traceability.
+* Request IDs.
 * Security response headers.
 
-### RAG safeguards
+## RAG safeguards
 
 * Hybrid evidence retrieval.
 * Candidate reranking.
 * Citation validation.
 * Grounding checks.
 * Explicit no-evidence handling.
-* Escalation when sufficient evidence is not available.
+* Escalation when sufficient evidence is unavailable.
 
-### Frontend security
+## Frontend security
 
-Markdown responses are sanitised through DOMPurify before HTML insertion.
+Markdown generated by the backend is sanitised through DOMPurify before being inserted into the document.
 
-External citation links are restricted to supported URI schemes and opened with:
+Citation links are handled with safe link attributes including:
 
 ```text
 rel="noopener noreferrer"
 ```
 
-### Logging
+## Logging
 
-The backend uses structured application logging and rotating log files.
+The backend uses application logging and rotating log files.
 
-Runtime logs are local/generated artifacts and should not be committed.
+Runtime logs should remain local and must not contain credentials or secrets.
 
 ---
 
 # Development Workflow
 
-This repository is intended to be developed collaboratively.
+The repository is intended to be developed collaboratively.
 
-A recommended workflow is:
+A recommended branch model is:
 
 ```text
 main
@@ -1009,45 +1350,39 @@ main
  └── feature/...
 ```
 
-Each developer should:
-
-1. Pull the latest `main`.
-2. Create a feature branch.
-3. Make focused changes.
-4. Run the relevant tests.
-5. Review the diff.
-6. Commit with a descriptive message.
-7. Push the feature branch.
-8. Open a pull request.
-9. Merge into `main` after review.
-
-Example:
+Typical workflow:
 
 ```bash
 git checkout main
 git pull origin main
-
-git checkout -b feature/improve-retrieval
+git checkout -b feature/my-change
 ```
 
-After development:
+After making changes:
 
 ```bash
 git status
 git diff --check
 pytest
-git add <files>
-git commit -m "feat(rag): improve retrieval ranking"
-git push -u origin feature/improve-retrieval
 ```
 
-Avoid committing directly to `main` for normal team development.
+Then:
+
+```bash
+git add <files>
+git commit -m "feat(component): describe the change"
+git push -u origin feature/my-change
+```
+
+Open a pull request and merge into `main` after review.
+
+Avoid direct commits to `main` during normal team development.
 
 ---
 
 # Environment and Generated Files
 
-The repository intentionally excludes local and sensitive files such as:
+The repository intentionally excludes local, generated and sensitive files such as:
 
 ```text
 .env
@@ -1064,15 +1399,17 @@ generated package metadata
 temporary files
 ```
 
-These files are environment-specific, generated, or potentially sensitive.
+These files are environment-specific or generated at runtime.
 
-A fresh clone should therefore be expected to recreate local runtime state by:
+A fresh clone should therefore recreate its local environment by:
 
-1. creating `.env`
-2. installing dependencies
-3. creating the database
-4. preparing the vector/lexical indexes
-5. starting the application
+1. Creating `backend/.env`.
+2. Supplying required credentials.
+3. Installing dependencies.
+4. Creating the database.
+5. Building the retrieval indexes.
+6. Starting the backend.
+7. Starting the frontend.
 
 ---
 
@@ -1082,16 +1419,16 @@ This is a **student capstone prototype**, not a production university informatio
 
 Important limitations include:
 
-* Policy content is dependent on the dataset available to the project.
-* Retrieval quality depends on chunking, embeddings, ranking and reranking quality.
+* Policy coverage depends on the available dataset.
+* Retrieval quality depends on chunking, embeddings, ranking and reranking.
 * LLM responses can still contain errors even when grounded.
-* Citation validation reduces unsupported references but does not guarantee that every generated statement is correct.
-* External LLM providers may have rate limits, availability constraints, or model-specific behaviour.
-* Browser voice input depends on browser capabilities and permissions.
-* The frontend currently stores the JWT in browser local storage, which is a known client-side security trade-off for this prototype.
-* Production deployment requires proper secret management, monitoring, infrastructure hardening, backups, and operational controls beyond this academic prototype.
+* Citation validation does not guarantee that every generated statement is correct.
+* External LLM providers may impose rate limits or service restrictions.
+* Voice input depends on browser support and permissions.
+* The frontend currently stores the JWT in browser local storage, which is a known client-side security trade-off.
+* Production deployment would require stronger secret management, monitoring, backups, incident handling, infrastructure hardening and operational controls.
 
-For policy decisions with real-world consequences, users should verify important information against the authoritative source policy.
+For important policy decisions, users should verify the answer against the authoritative policy source.
 
 ---
 
@@ -1101,38 +1438,36 @@ Potential extensions include:
 
 * stronger authentication and session management
 * secure HTTP-only cookie-based sessions
-* more comprehensive automated RAG evaluation
-* improved citation entailment checks
-* streaming directly from the backend
-* more advanced reranking models
-* better policy version tracking
+* more comprehensive RAG evaluation
+* stronger citation entailment validation
+* direct backend streaming
+* advanced reranking models
+* policy version tracking
 * incremental ingestion
 * document change detection
 * richer observability and tracing
-* CI/CD pipelines
+* CI/CD automation
 * automated dependency and security scanning
 * production-grade secret management
-* comprehensive end-to-end browser testing
-* stronger access-control administration
-* deployment to managed cloud infrastructure
+* comprehensive browser end-to-end testing
+* stronger administrative access control
+* managed cloud deployment
 
 ---
 
 # Academic and Data Usage Notice
 
-This repository was developed as a university capstone project.
+This repository was developed as a university capstone project for **CSE3CAP**.
 
 The included policy dataset is provided for the project's intended private academic use under the project's authorised data-sharing arrangements.
 
 The dataset and application should not be redistributed beyond the permissions governing the project.
 
-The application is not an official La Trobe University service and should not be represented as one.
+The application is **not an official La Trobe University service** and must not be represented as one.
 
 ---
 
 # Project Components
-
-The repository contains two primary applications:
 
 ## Backend
 
@@ -1177,7 +1512,7 @@ Responsible for:
 * chat experience
 * conversation navigation
 * settings
-* themes/layouts
+* themes and layouts
 * markdown rendering
 * citation presentation
 * API communication
@@ -1186,9 +1521,7 @@ Responsible for:
 
 # Quick Start
 
-For experienced developers, the shortest local setup is:
-
-### Terminal 1 — Backend
+## Backend
 
 ```bash
 cd backend
@@ -1206,9 +1539,9 @@ python -m scripts.ingest_policies
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Terminal 2 — Frontend
+## Frontend
 
-From the repository root:
+From the repository root, open a second terminal:
 
 ```bash
 python -m http.server 5500 --directory frontend
@@ -1220,10 +1553,24 @@ Then open:
 http://127.0.0.1:5500
 ```
 
-Backend API documentation:
+## API Documentation
+
+Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
+ReDoc:
+
+```text
+http://127.0.0.1:8000/redoc
+```
+
+OpenAPI schema:
+
+```text
+http://127.0.0.1:8000/openapi.json
 ```
 
 ---
@@ -1236,5 +1583,5 @@ Unless a separate license file is added to the repository, no additional open-so
 
 ```
 
-Use that as the **root `README.md`**. One important distinction is intentional: the structure you supplied includes local/generated directories such as `storage`, `logs`, `policy_db_chatbot.egg-info`, and ignored files such as `seed_users.py`; the README now explicitly explains that those may not exist in a fresh clone.
+One important improvement from your previous version is that the README now explicitly distinguishes **required credentials from optional provider credentials**, and gives a proper **Swagger UI workflow** for login, bearer-token authorization, chat testing, conversation testing, and error testing.
 ```

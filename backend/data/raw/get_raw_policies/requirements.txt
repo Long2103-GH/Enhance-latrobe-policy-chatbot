@@ -1,0 +1,12 @@
+# Web Crawling & Rendering Engine
+crawl4ai>=0.4.0
+playwright>=1.40.0
+
+# Data Processing & Storage
+pandas>=2.0.0
+
+# Standard Async & Event Loop Support
+asyncio; python_version < "3.4"
+
+
+

@@ -1,0 +1,145 @@
+# ============================================================
+# Project / Local Files
+# ============================================================
+
+# Local project structure/debugging files
+file_structure.py
+project_structure.txt
+
+
+# ============================================================
+# Operating System
+# ============================================================
+
+.DS_Store
+Thumbs.db
+
+
+# ============================================================
+# IDE / Editor
+# ============================================================
+
+.vscode/
+.idea/
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+
+# ============================================================
+# Environment / Secrets
+# ============================================================
+
+# Never commit environment files containing secrets
+.env
+.env.*
+!.env.example
+
+
+# ============================================================
+# Python
+# ============================================================
+
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Test / type-check / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+
+# ============================================================
+# Virtual Environments
+# ============================================================
+
+.venv/
+venv/
+env/
+
+
+# ============================================================
+# Python Build / Package Artifacts
+# ============================================================
+
+*.egg-info/
+build/
+dist/
+
+
+# ============================================================
+# Databases / Local Application Storage
+# ============================================================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Local storage directories
+storage/
+
+# Application logs
+logs/
+*.log
+
+
+# ============================================================
+# Qdrant Local Storage
+# ============================================================
+
+# Local Qdrant databases should never be committed
+qdrant/
+qdrant_test/
+
+
+# ============================================================
+# Frontend / Node.js
+# ============================================================
+
+node_modules/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Frontend build output
+frontend/dist/
+frontend/build/
+
+
+# ============================================================
+# Temporary / Generated Files
+# ============================================================
+
+*.tmp
+*.temp
+*.bak
+
+
+# ============================================================
+# Test Artifacts
+# ============================================================
+
+# Generated test credentials / temporary test output
+**/test_artifacts/
+
+# Evaluation reports
+reports/
+
+
+# ============================================================
+# Local Machine / Model Files
+# ============================================================
+
+# Downloaded local ML models
+models/
+local_models/

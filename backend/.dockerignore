@@ -58,3 +58,7 @@ CODE_OF_CONDUCT.md
 tests/
 _pending/
 data/test_artifacts/
+
+# Deprecated / derived files
+data/raw/policies_summary.csv
+scripts/seed_users.py

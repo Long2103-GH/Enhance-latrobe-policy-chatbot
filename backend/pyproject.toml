@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "policy-db-chatbot"
+version = "1.0.0"
+description = "Production-grade RAG backend for the La Trobe University Policy Database"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+# =========================================================================
+# Pytest
+# =========================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-fail-under=60",
+]
+markers = [
+    "integration: tests that require real external services (skipped by default)",
+    "slow: tests that take more than a second",
+]
+
+# =========================================================================
+# Ruff (linter + formatter)
+# =========================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+# =========================================================================
+# MyPy (static type checker)
+# =========================================================================
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true

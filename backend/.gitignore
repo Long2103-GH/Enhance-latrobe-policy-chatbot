@@ -121,3 +121,7 @@ local_models/
 
 # Pending / experimental code
 _pending/
+
+# Deprecated / derived files
+data/raw/policies_summary.csv
+scripts/seed_users.py

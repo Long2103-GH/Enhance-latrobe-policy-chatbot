@@ -26,17 +26,77 @@
 
   const ALLOWED_ATTR = ['href', 'title', 'target', 'rel'];
 
-  /** Renders a markdown string into a sanitized HTML string. */
-  function renderMarkdown(text) {
+  /**
+   * Renders a markdown string into a sanitized HTML string.
+   *
+   * When `citations` is supplied, inline citation markers like `[C1]`
+   * are rewritten into clickable anchor tags that point at the source
+   * policy URL. Markers inside code spans/blocks are left as literal
+   * text.
+   */
+function renderMarkdown(text, citations) {
     if (!text) return '';
     if (!window.marked || !window.DOMPurify) return escapeHtml(text);
 
-    const rawHtml = window.marked.parse(text);
-    return window.DOMPurify.sanitize(rawHtml, {
+    let html = window.marked.parse(text);
+
+    if (Array.isArray(citations) && citations.length > 0) {
+      html = linkifyInlineCitations(html, citations);
+    }
+
+    return window.DOMPurify.sanitize(html, {
       ALLOWED_TAGS,
       ALLOWED_ATTR,
+      ADD_ATTR: ['target', 'rel'], // 🛡️ Ensures target="_blank" is never stripped
       ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
     });
+  }
+
+  /**
+   * Rewrites bare `[C1]` markers into `<a>` links, skipping anything
+   * inside `<code>` / `<pre>` blocks so literal occurrences stay literal.
+   */
+  function linkifyInlineCitations(html, citations) {
+    // Build the id → { url, title } map once.
+    const byId = new Map();
+    for (const c of citations) {
+      if (!c || !c.citation_id) continue;
+      byId.set(c.citation_id, {
+        url: c.url || '',
+        title: c.title || '',
+      });
+    }
+    if (byId.size === 0) return html;
+
+    // Split on code/pre segments so we don't rewrite inside them.
+    return html
+      .split(/(<(?:code|pre)\b[\s\S]*?<\/(?:code|pre)>)/gi)
+      .map((segment, i) => {
+        // Odd indices are the code/pre chunks; leave them untouched.
+        if (i % 2 === 1) return segment;
+        return segment.replace(/\[(C\d+)\]/g, (match, id) => {
+          const meta = byId.get(id);
+          if (!meta || !meta.url) return match;
+          const safeUrl = escapeAttr(meta.url);
+          const safeTitle = escapeAttr(meta.title || id);
+          return (
+            `<a class="cite-inline" href="${safeUrl}" ` +
+            `title="${safeTitle}" target="_blank" ` +
+            `rel="noopener noreferrer">[${id}]</a>`
+          );
+        });
+      })
+      .join('');
+  }
+
+  /** Escapes a string for safe inclusion inside an HTML attribute value. */
+  function escapeAttr(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   /** Escapes plain text for safe insertion. */
@@ -106,15 +166,30 @@
     return wrap;
   }
 
-  /** Applies sanitized markdown HTML to an element's innerHTML. */
-  function applyMarkdownToElement(el, text) {
+/**
+   * Applies sanitized markdown HTML to an element's innerHTML.
+   *
+   * Pass `citations` to make inline `[C1]` markers clickable.
+   */
+  function applyMarkdownToElement(el, text, citations) {
     if (!el) return;
     if (!text) {
       el.innerHTML = '';
       return;
     }
-    // Renders to sanitized HTML string, so innerHTML is safe.
-    el.innerHTML = renderMarkdown(text);
+    el.innerHTML = renderMarkdown(text, citations);
+
+    // Force external-link behaviour and stop event hijacking
+    const links = el.querySelectorAll('a.cite-inline');
+    for (const a of links) {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      
+      // Stop parent containers or routers from intercepting the click
+      a.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
   }
 
   window.AskLTMarkdown = Object.freeze({

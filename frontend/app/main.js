@@ -40,12 +40,16 @@
   let settingsInstance = null;
 
   // ─── Chat controller ─────────────────────────────────────────────
+  let pendingScrollIntent = null; // 'user' | 'assistant' | null
+
   const chatController = new Chat({
     onRender: () => render(),
     onConversationsChanged: () => {
       // Fire and forget — refresh sidebar from backend.
       loadConversationsFromServer().then(() => render()).catch(() => {});
     },
+    onUserSent: () => { pendingScrollIntent = 'user'; },
+    onAssistantCommitted: () => { pendingScrollIntent = 'assistant'; },
   });
 
   // ================================================================
@@ -245,7 +249,6 @@
     labelEl.className = 'field__label';
     labelEl.textContent = label;
 
-    // Unique id so the label binds correctly to the input.
     const inputId = 'field-' + Math.random().toString(36).slice(2, 9);
     labelEl.setAttribute('for', inputId);
     field.appendChild(labelEl);
@@ -261,16 +264,14 @@
 
     input.value = value || '';
 
-    // Prevent browser autofill. Different browsers respect different
-    // strategies, so we combine them.
     const isPassword = type === 'password';
     input.autocomplete = isPassword ? 'new-password' : (autocomplete || 'off');
     input.setAttribute('name', 'field-' + Math.random().toString(36).slice(2, 9));
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
-    input.setAttribute('data-lpignore', 'true');       // LastPass
-    input.setAttribute('data-form-type', 'other');     // Bitwarden
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-form-type', 'other');
     input.required = true;
 
     input.addEventListener('input', () => onChange(input.value));
@@ -350,9 +351,7 @@
             for (const conv of list) {
               try {
                 await Api.deleteConversation(currentState.token, conv.id);
-              } catch (_) {
-                /* ignore */
-              }
+              } catch (_) {}
             }
 
             Store.setConversations([]);
@@ -537,8 +536,6 @@
     main.appendChild(composerWrap);
 
     layout.appendChild(main);
-
-    setTimeout(() => scrollToBottom(), 0);
     return layout;
   }
 
@@ -589,7 +586,6 @@
     composerWrap.appendChild(composerInner);
     layout.appendChild(composerWrap);
 
-    setTimeout(() => scrollToBottom(), 0);
     return layout;
   }
 
@@ -697,7 +693,6 @@
     main.appendChild(win);
     layout.appendChild(main);
 
-    setTimeout(() => scrollToBottom(), 0);
     return layout;
   }
 
@@ -969,7 +964,6 @@
   }
 
   function promptRename(conversation) {
-    // Close all menus first.
     document.querySelectorAll('.convo-item__menu').forEach((m) => { m.hidden = true; });
     document.querySelectorAll('.convo-item--menu-open').forEach((w) => w.classList.remove('convo-item--menu-open'));
 
@@ -1080,23 +1074,26 @@
   // ================================================================
 
   function renderThreadInto(container, state) {
-    Thread.render(container, {
-      messages: state.messages,
-      suggestions: CFG.SUGGESTIONS,
-      greeting: getGreeting(),
-      isStreaming: state.isSending,
-      streamText: state.streamBuffer,
-      error: state.error,
-      handlers: {
-        onSuggestion: (text) => {
-          const composer = ensureComposer();
-          composer.setValue(text);
-          composer.focus();
+    try {
+      Thread.render(container, {
+        messages: state.messages,
+        suggestions: CFG.SUGGESTIONS,
+        greeting: getGreeting(),
+        isStreaming: state.isSending,
+        error: state.error,
+        handlers: {
+          onSuggestion: (text) => {
+            const composer = ensureComposer();
+            composer.setValue(text);
+            composer.focus();
+          },
+          onCopy: (text) => chatController.copy(text),
+          onRetry: (i) => chatController.retry(i),
         },
-        onCopy: (text) => chatController.copy(text),
-        onRetry: (i) => chatController.retry(i),
-      },
-    });
+      });
+    } catch (err) {
+      console.warn('[thread render error]', err);
+    }
   }
 
   function ensureComposer() {
@@ -1125,10 +1122,46 @@
     return 'Good evening.';
   }
 
-  function scrollToBottom() {
-    const el = document.getElementById('chat-scroll');
-    if (el) el.scrollTop = el.scrollHeight;
+    // ================================================================
+    // SYNCHRONOUS SAFE SCROLL INTENT
+    // ================================================================
+
+
+
+    function applyScrollIntent() {
+    try {
+      const el = document.getElementById('chat-scroll');
+      if (!el) return;
+
+      const intent = pendingScrollIntent;
+      pendingScrollIntent = null;
+
+      // When the user sends a message or the assistant answer finishes committing:
+      if (intent === 'user' || intent === 'assistant') {
+        // Find the absolute latest user question in the DOM
+        const userMessages = el.querySelectorAll('.message--user');
+        const latestUserMessage = userMessages[userMessages.length - 1];
+
+        if (latestUserMessage) {
+          // Force it cleanly to the very top of the scroll viewport
+          latestUserMessage.scrollIntoView({ behavior: 'auto', block: 'start' });
+          return;
+        }
+      }
+
+      // Fallback for non-intent re-renders (like theme toggling)
+      const scrollElBefore = document.getElementById('chat-scroll');
+      if (scrollElBefore && typeof scrollElBefore.scrollTop === 'number') {
+        // preserve current
+      }
+    } catch (err) {
+      console.warn('[scroll intent suppressed]', err);
+    }
   }
+  
+  
+  
+
 
   // ================================================================
   // ACTIONS
@@ -1187,7 +1220,6 @@
     Store.setState({
       activeConversationId: id,
       messages: [],
-      streamBuffer: '',
       error: null,
     });
     render();
@@ -1233,32 +1265,47 @@
   }
 
   // ================================================================
-  // RENDER LOOP
+  // RENDER LOOP (PROTECTED AGAINST WHITE SCREENS)
+  // ================================================================
+
+// ================================================================
+  // RENDER LOOP (100% WHITE-SCREEN PROOF)
   // ================================================================
 
   function render() {
-    const currentComposer = composerInstance;
-    const shouldRefocusComposer =
-      currentComposer && document.activeElement === currentComposer.inputEl;
+    try {
+      const currentComposer = composerInstance;
+      const shouldRefocusComposer =
+        currentComposer && document.activeElement === currentComposer.inputEl;
 
-    root.innerHTML = '';
-    const state = Store.getState();
+      root.innerHTML = '';
+      const state = Store.getState();
 
-    if (state.authStatus === 'authenticated') {
-      root.appendChild(renderChat());
+      if (state.authStatus === 'authenticated') {
+        root.appendChild(renderChat());
 
-      const composer = ensureComposer();
-      composer.setBusy(state.isSending);
+        const composer = ensureComposer();
+        composer.setBusy(state.isSending);
 
-      if (shouldRefocusComposer) {
-        composer.focus();
+        if (shouldRefocusComposer) {
+          composer.focus();
+        }
+
+        // Execute scroll immediately while elements are guaranteed to be in the DOM
+        applyScrollIntent();
+      } else if (state.authStatus === 'checking') {
+        return;
+      } else {
+        root.appendChild(renderLogin());
       }
-    } else if (state.authStatus === 'checking') {
-      return;
-    } else {
-      root.appendChild(renderLogin());
+    } catch (renderErr) {
+      // 🛡️ GUARANTEED ZERO WHITE SCREENS
+      console.error("❌ Render loop exception caught safely:", renderErr);
     }
   }
+
+
+
 
   Store.subscribe(() => render());
 

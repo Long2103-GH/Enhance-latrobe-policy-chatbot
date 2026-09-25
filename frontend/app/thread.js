@@ -118,9 +118,10 @@
   }
 
   // ─── Bot message ───────────────────────────────────────────────────
-  function buildBotMessage(message, handlers) {
+  function buildBotMessage(message, handlers, index) {
     const wrap = document.createElement('div');
     wrap.className = 'message message--bot';
+    if (typeof index === 'number') wrap.dataset.messageIndex = index;
 
     const row = document.createElement('div');
     row.className = 'message__row';
@@ -141,16 +142,22 @@
       return wrap;
     }
 
-    // Markdown content
-    const md = document.createElement('div');
-    md.className = 'md';
-    MD.applyMarkdownToElement(md, message.text);
-    body.appendChild(md);
+    // 🛡️ Safe Markdown & Citation Rendering (Guaranteed No White Screen)
+    try {
+      const md = document.createElement('div');
+      md.className = 'md';
+      MD.applyMarkdownToElement(md, message.text, message.citations);
+      body.appendChild(md);
 
-    // Citations
-    if (Array.isArray(message.citations) && message.citations.length > 0) {
-      const cites = MD.buildCitationsElement(message.citations);
-      if (cites) body.appendChild(cites);
+      if (Array.isArray(message.citations) && message.citations.length > 0) {
+        const cites = MD.buildCitationsElement(message.citations);
+        if (cites) body.appendChild(cites);
+      }
+    } catch (renderEx) {
+      console.error("❌ Markdown/Citation render error:", renderEx);
+      const fallback = document.createElement('div');
+      fallback.textContent = message.text || '';
+      body.appendChild(fallback);
     }
 
     // Actions
@@ -184,6 +191,7 @@
 
     return wrap;
   }
+
 
   // ─── Loading indicator ─────────────────────────────────────────────
   function buildLoadingIndicator() {
@@ -257,23 +265,20 @@
       if (m.role === 'user') {
         container.appendChild(buildUserMessage(m, {
           onCopy: () => props.handlers.onCopy(m.text),
-        }));
+        }, i));
       } else {
         container.appendChild(buildBotMessage(m, {
           onCopy: () => props.handlers.onCopy(m.text),
           onRetry: () => props.handlers.onRetry(i),
-        }));
+        }, i));
       }
     }
 
-    // Streaming: if we have buffer text, show it; otherwise show loading dots
+    // 🛡️ STATIC LOADING STATE ONLY: Prevents rapid re-render flashing
     if (props.isStreaming) {
-      if (props.streamText && props.streamText.length > 0) {
-        container.appendChild(buildStreamingMessage(props.streamText));
-      } else {
-        const loadingMsg = { isLoading: true };
-        container.appendChild(buildBotMessage(loadingMsg, {}));
-      }
+      container.appendChild(
+        buildBotMessage({ isLoading: true }, {}, props.messages.length)
+      );
     }
 
     if (props.error) {

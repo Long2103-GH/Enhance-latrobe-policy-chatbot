@@ -1,13 +1,5 @@
 /**
  * Ask La Trobe — chat controller (server-side conversations).
- *
- * The backend owns conversations. This controller:
- *   - Sends `conversation_id` when continuing an existing conversation.
- *   - Uses the id returned by the backend when a new conversation is
- *     auto-created.
- *   - Notifies a callback after each successful exchange so the sidebar
- *     can refresh from the server.
- *   - Does not persist anything to localStorage.
  */
 (function () {
   'use strict';
@@ -18,15 +10,16 @@
   const Shortcuts = window.AskLTShortcuts;
 
   class ChatController {
-    constructor({ onRender, onConversationsChanged }) {
+    constructor({ onRender, onConversationsChanged, onUserSent, onAssistantCommitted }) {
       this.onRender = onRender;
       this.onConversationsChanged = onConversationsChanged || (() => {});
+      this.onUserSent = onUserSent || null;
+      this.onAssistantCommitted = onAssistantCommitted || null;
       this._streamTimer = null;
       this._abortController = null;
       this._requestId = 0;
     }
 
-    // ─── Send ────────────────────────────────────────────────────────
     async send(query) {
       const state = Store.getState();
       if (state.isSending) return;
@@ -36,18 +29,17 @@
       const q = (query || '').trim();
       if (!q) {
         Store.setState({ error: CFG.MESSAGES.EMPTY_QUERY });
-        this.onRender();
         return;
       }
 
-      // Shortcut: greetings, thanks, help, etc.
       const shortcut = Shortcuts ? Shortcuts.match(q) : null;
       if (shortcut) {
+        if (typeof this.onUserSent === 'function') this.onUserSent();
+        if (typeof this.onAssistantCommitted === 'function') this.onAssistantCommitted();
         this._replyInstantly(q, shortcut);
         return;
       }
 
-      // Normal RAG flow
       const conversation = state.messages
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
@@ -58,14 +50,16 @@
       const userMessage = { role: 'user', text: q };
       const messages = state.messages.concat([userMessage]);
 
-      // Show the user's message immediately.
+      if (typeof this.onUserSent === 'function') {
+        this.onUserSent();
+      }
+
       Store.setState({
         messages,
         isSending: true,
         streamBuffer: '',
         error: null,
       });
-      this.onRender();
 
       try {
         this._abortController = new AbortController();
@@ -81,22 +75,19 @@
         );
 
         if (requestId !== this._requestId) return;
-
         this._abortController = null;
 
         const fullAnswer = data.answer || '';
         const citations = data.citations || [];
         const returnedConversationId = data.conversation_id;
 
-        // If the backend created a new conversation, adopt its id.
         if (
           returnedConversationId &&
           returnedConversationId !== state.activeConversationId
         ) {
           Store.setState({ activeConversationId: returnedConversationId });
 
-          const title =
-            q.length > 42 ? q.slice(0, 42).trim() + '…' : q;
+          const title = q.length > 42 ? q.slice(0, 42).trim() + '…' : q;
 
           Store.addConversationLocal({
             id: returnedConversationId,
@@ -121,18 +112,12 @@
           requestId,
         );
 
-        // Refresh sidebar from the server (source of truth).
         this.onConversationsChanged();
       } catch (err) {
         if (requestId !== this._requestId) return;
-
-        if (
-          err?.name === 'NetworkError' &&
-          err?.cause?.name === 'AbortError'
-        ) {
+        if (err?.name === 'NetworkError' && err?.cause?.name === 'AbortError') {
           return;
         }
-
         this._abortController = null;
         this._handleError(err);
       }
@@ -149,14 +134,16 @@
 
       const messages = state.messages.concat([userMessage, botMessage]);
 
+      if (typeof this.onAssistantCommitted === 'function') {
+        this.onAssistantCommitted();
+      }
+
       Store.setState({
         messages,
         isSending: false,
         streamBuffer: '',
         error: null,
       });
-
-      this.onRender();
     }
 
     _stream(fullText, citations, priorMessages, activeId, requestId) {
@@ -169,12 +156,9 @@
       let timerId = null;
 
       timerId = setInterval(() => {
-        // Ignore an outdated stream without accidentally clearing a newer one.
         if (requestId !== this._requestId) {
           clearInterval(timerId);
-          if (this._streamTimer === timerId) {
-            this._streamTimer = null;
-          }
+          if (this._streamTimer === timerId) this._streamTimer = null;
           return;
         }
 
@@ -182,22 +166,13 @@
 
         if (i >= parts.length) {
           clearInterval(timerId);
-          if (this._streamTimer === timerId) {
-            this._streamTimer = null;
-          }
+          if (this._streamTimer === timerId) this._streamTimer = null;
 
-          this._commit(
-            fullText,
-            citations,
-            priorMessages,
-            activeId,
-            requestId,
-          );
+          this._commit(fullText, citations, priorMessages, activeId, requestId);
         } else {
           Store.setState({
             streamBuffer: parts.slice(0, i).join(''),
           });
-          this.onRender();
         }
       }, CFG.STREAM_TICK_MS);
 
@@ -215,14 +190,16 @@
 
       const messages = priorMessages.concat([botMessage]);
 
+      if (typeof this.onAssistantCommitted === 'function') {
+        this.onAssistantCommitted();
+      }
+
       Store.setState({
         messages,
         streamBuffer: '',
         isSending: false,
         activeConversationId: activeId,
       });
-
-      this.onRender();
     }
 
     stop() {
@@ -247,6 +224,10 @@
 
         const messages = state.messages.concat([botMessage]);
 
+        if (typeof this.onAssistantCommitted === 'function') {
+          this.onAssistantCommitted();
+        }
+
         Store.setState({
           messages,
           streamBuffer: '',
@@ -255,14 +236,10 @@
       } else {
         Store.setState({ isSending: false });
       }
-
-      this.onRender();
     }
 
-    // ─── Regenerate (append a new answer) ────────────────────────────
     async retry(botIndex) {
       const state = Store.getState();
-
       if (state.isSending) return;
 
       const targetMessage = state.messages[botIndex];
@@ -285,13 +262,10 @@
         isSending: true,
         streamBuffer: '',
       });
-      this.onRender();
 
       const conversation = state.messages
         .slice(0, botIndex)
-        .filter(
-          (m) => m.role === 'user' || m.role === 'assistant',
-        )
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
@@ -312,7 +286,6 @@
         );
 
         if (requestId !== this._requestId) return;
-
         this._abortController = null;
 
         const fullAnswer = data.answer || '';
@@ -320,26 +293,13 @@
         const priorMessages = state.messages;
         const activeId = state.activeConversationId;
 
-        this._stream(
-          fullAnswer,
-          citations,
-          priorMessages,
-          activeId,
-          requestId,
-        );
-
-        // Refresh sidebar from the server.
+        this._stream(fullAnswer, citations, priorMessages, activeId, requestId);
         this.onConversationsChanged();
       } catch (err) {
         if (requestId !== this._requestId) return;
-
-        if (
-          err?.name === 'NetworkError' &&
-          err?.cause?.name === 'AbortError'
-        ) {
+        if (err?.name === 'NetworkError' && err?.cause?.name === 'AbortError') {
           return;
         }
-
         this._abortController = null;
         this._handleError(err);
       }
@@ -348,9 +308,7 @@
     async copy(text) {
       try {
         await navigator.clipboard.writeText(text);
-      } catch (_) {
-        /* clipboard blocked — no-op */
-      }
+      } catch (_) {}
     }
 
     _handleError(err) {
@@ -375,11 +333,8 @@
         streamBuffer: '',
         error: message,
       });
-
-      this.onRender();
     }
   }
 
   window.AskLTChat = { ChatController };
 })();
-

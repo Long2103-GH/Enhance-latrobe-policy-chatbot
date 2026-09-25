@@ -689,8 +689,8 @@ or any other file containing API keys, passwords, tokens, or signing secrets.
 ## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/durbAr404/latrobe-university-policy-db-chatbot-TEAM-VectorBot.git
-cd latrobe-university-policy-db-chatbot-TEAM-VectorBot
+git clone https://github.com/durbAr404/LaTrobe-University-Policy-DB-Chatbot.git
+cd LaTrobe-University-Policy-DB-Chatbot
 ```
 
 Verify the repository:

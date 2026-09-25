@@ -6,7 +6,7 @@ The system combines a web-based frontend with a FastAPI backend, hybrid semantic
 
 > **Academic project:** Capstone prototype for CSE3CAP.
 
-> **Not an official La Trobe University service.**
+> **Not an official La Trobe University service (until it gets approval from the authority)**
 
 ---
 

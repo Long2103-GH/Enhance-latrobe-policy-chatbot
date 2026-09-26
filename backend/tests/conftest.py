@@ -39,8 +39,8 @@ os.environ.setdefault("QDRANT_PATH", "./storage/qdrant_test")
 @pytest_asyncio.fixture
 async def db_engine():
     """In-memory SQLite engine, fresh per test."""
-    from app.db.database import Base
     from app.db import models  # noqa: F401  (register tables)
+    from app.db.database import Base
 
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -210,6 +210,7 @@ def mock_embedding_service():
     similarity if needed.
     """
     import hashlib
+
     from app.services.embedding_service import EmbeddingService
 
     DIM = 1024
@@ -247,8 +248,8 @@ def mock_vector_store():
     Also patches __init__ so the real embedded Qdrant client is never
     opened — otherwise parallel tests hit a portalocker file-lock error.
     """
-    from app.services.vector_store import VectorStore
     from app.rag.models import RetrievalResult
+    from app.services.vector_store import VectorStore
 
     storage: dict[str, dict] = {}
 
@@ -262,7 +263,7 @@ def mock_vector_store():
         return None
 
     async def fake_upsert(self, chunks, vectors):
-        for chunk, vec in zip(chunks, vectors):
+        for chunk, vec in zip(chunks, vectors, strict=True):
             storage[chunk.chunk_id] = {
                 "vector": vec,
                 "payload": {
@@ -278,7 +279,7 @@ def mock_vector_store():
 
     async def fake_search(self, vector, limit):
         results: list[RetrievalResult] = []
-        for i, (chunk_id, entry) in enumerate(list(storage.items())[:limit]):
+        for i, entry in enumerate(list(storage.items())[:limit]):
             p = entry["payload"]
             results.append(
                 RetrievalResult(
@@ -311,8 +312,8 @@ def mock_vector_store():
 @pytest.fixture
 def mock_lexical_store():
     """Replace LexicalStore with an in-memory fake."""
-    from app.services.lexical_store import LexicalStore
     from app.rag.models import RetrievalResult
+    from app.services.lexical_store import LexicalStore
 
     storage: list[dict] = []
 

@@ -115,10 +115,10 @@ async def test_retrieval_service_returns_fused_results(
     mock_lexical_store,
 ):
     """RetrievalService merges vector + lexical results."""
-    from app.services.retrieval_service import RetrievalService
     from app.services.embedding_service import EmbeddingService
-    from app.services.vector_store import VectorStore
     from app.services.lexical_store import LexicalStore
+    from app.services.retrieval_service import RetrievalService
+    from app.services.vector_store import VectorStore
 
     mock_vector_store["v1"] = {
         "vector": [0.1] * 1024,

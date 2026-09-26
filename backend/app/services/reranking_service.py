@@ -69,7 +69,7 @@ class RerankingService:
 
         reranked: list[RetrievalResult] = []
 
-        for result, bm25_score in zip(candidates, normalized):
+        for result, bm25_score in zip(candidates, normalized, strict=True):
             blended = (
                 1.0 - self.bm25_weight
             ) * result.fused_score + self.bm25_weight * bm25_score

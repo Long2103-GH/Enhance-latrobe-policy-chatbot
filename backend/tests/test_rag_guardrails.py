@@ -19,8 +19,9 @@ async def test_conversations_are_user_scoped(
     test_client, db_session, student_token, admin_token
 ):
     """A user can only see their own conversations."""
-    from app.db.models import User, Conversation
     from sqlalchemy import select
+
+    from app.db.models import Conversation, User
 
     student = (
         await db_session.execute(select(User).where(User.email == "student@test.edu"))
@@ -56,8 +57,9 @@ async def test_admin_cannot_read_other_users_conversation(
     test_client, db_session, student_token, admin_token
 ):
     """Even with a valid id, another user gets 404."""
-    from app.db.models import User, Conversation
     from sqlalchemy import select
+
+    from app.db.models import Conversation, User
 
     student = (
         await db_session.execute(select(User).where(User.email == "student@test.edu"))
@@ -81,8 +83,9 @@ async def test_admin_cannot_delete_other_users_conversation(
     test_client, db_session, student_token, admin_token
 ):
     """Delete on someone else's conversation returns 404 and does not delete."""
-    from app.db.models import User, Conversation
     from sqlalchemy import select
+
+    from app.db.models import Conversation, User
 
     student = (
         await db_session.execute(select(User).where(User.email == "student@test.edu"))
@@ -291,8 +294,8 @@ def test_query_rewrite_skipped_for_first_turn():
 
 
 def test_query_rewrite_skipped_for_self_contained_followup():
-    from app.services.query_rewriter import needs_rewrite
     from app.schemas.chat import ChatMessage
+    from app.services.query_rewriter import needs_rewrite
 
     conversation = [
         ChatMessage(role="user", content="First question"),
@@ -308,8 +311,8 @@ def test_query_rewrite_skipped_for_self_contained_followup():
 
 
 def test_query_rewrite_fires_for_pronoun_followup():
-    from app.services.query_rewriter import needs_rewrite
     from app.schemas.chat import ChatMessage
+    from app.services.query_rewriter import needs_rewrite
 
     conversation = [
         ChatMessage(role="user", content="Tell me about the scholarship."),
@@ -320,8 +323,8 @@ def test_query_rewrite_fires_for_pronoun_followup():
 
 
 def test_query_rewrite_fires_for_vague_short_followup():
-    from app.services.query_rewriter import needs_rewrite
     from app.schemas.chat import ChatMessage
+    from app.services.query_rewriter import needs_rewrite
 
     conversation = [
         ChatMessage(role="user", content="What is the leave policy?"),

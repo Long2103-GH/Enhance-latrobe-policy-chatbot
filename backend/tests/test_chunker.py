@@ -3,7 +3,7 @@
 import pytest
 
 from app.rag.chunker import PolicyChunker, RawPolicy
-
+from dataclasses import FrozenInstanceError
 
 def make_policy(sections: list[dict]) -> RawPolicy:
     return RawPolicy(
@@ -141,5 +141,5 @@ def test_chunks_are_immutable():
 
     chunks = chunker.chunk(policy)
 
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         chunks[0].text = "mutated"  # type: ignore[misc]

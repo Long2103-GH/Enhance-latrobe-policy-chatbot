@@ -1,6 +1,6 @@
 """SQLAlchemy database models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -20,7 +20,7 @@ from app.db.database import Base
 
 def utc_now() -> datetime:
     """Return a timezone-aware UTC timestamp."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(Base):

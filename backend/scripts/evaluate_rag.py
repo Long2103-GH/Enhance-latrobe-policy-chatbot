@@ -23,7 +23,7 @@ import json
 import statistics
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
@@ -321,7 +321,7 @@ async def run_evaluation(dataset_path: Path) -> EvaluationReport:
 
     rag, retrieval = build_services()
 
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
 
     results: list[QuestionResult] = []
     for item in dataset:
@@ -330,7 +330,7 @@ async def run_evaluation(dataset_path: Path) -> EvaluationReport:
         status = "ERROR" if result.error else "OK"
         print(f"[{status}] {result.question_id}: {result.query[:60]}")
 
-    finished_at = datetime.now(timezone.utc).isoformat()
+    finished_at = datetime.now(UTC).isoformat()
 
     recalls = [r.recall_at_k for r in results]
     latencies = [r.latency_ms for r in results]

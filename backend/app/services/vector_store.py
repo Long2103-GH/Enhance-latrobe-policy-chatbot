@@ -64,7 +64,7 @@ class VectorStore:
 
         points: list[models.PointStruct] = []
 
-        for chunk, vector in zip(chunks, vectors):
+        for chunk, vector in zip(chunks, vectors, strict=True):
             point_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk.chunk_id))
 
             points.append(

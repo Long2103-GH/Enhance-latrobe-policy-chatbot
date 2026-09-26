@@ -155,7 +155,7 @@ class IngestionService:
         """Load and validate policy records from JSONL."""
         policies: list[dict] = []
 
-        with open(self.policy_path, "r", encoding="utf-8") as file:
+        with open(self.policy_path, encoding="utf-8") as file:
             for line_number, line in enumerate(file, start=1):
                 if not line.strip():
                     continue

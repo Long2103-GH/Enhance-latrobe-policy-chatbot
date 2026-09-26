@@ -1,6 +1,6 @@
 """Authentication and password security."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from argon2 import PasswordHasher
@@ -9,7 +9,6 @@ from jose import JWTError, jwt
 
 from app.core.config import get_settings
 from app.core.exceptions import AuthenticationError
-
 
 _password_hasher = PasswordHasher()
 
@@ -37,7 +36,7 @@ def create_access_token(
 
     settings = get_settings()
 
-    expires_at = datetime.now(timezone.utc) + timedelta(
+    expires_at = datetime.now(UTC) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
 
@@ -45,7 +44,7 @@ def create_access_token(
         "sub": subject,
         "role": role,
         "exp": expires_at,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
 
     return jwt.encode(

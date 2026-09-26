@@ -1,5 +1,7 @@
 """Authentication endpoint tests."""
 
+from datetime import UTC
+
 import pytest
 
 # ────────────────────────────────────────────────────────────────────────
@@ -190,8 +192,10 @@ async def test_me_with_malformed_token_returns_401(test_client):
 @pytest.mark.asyncio
 async def test_me_with_expired_token_returns_401(test_client, seeded_user):
     """Expired JWT → 401."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
+
     from jose import jwt
+
     from app.core.config import get_settings
 
     settings = get_settings()
@@ -199,8 +203,8 @@ async def test_me_with_expired_token_returns_401(test_client, seeded_user):
         {
             "sub": str(seeded_user["id"]),
             "role": seeded_user["role"],
-            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
-            "iat": datetime.now(timezone.utc) - timedelta(hours=2),
+            "exp": datetime.now(UTC) - timedelta(hours=1),
+            "iat": datetime.now(UTC) - timedelta(hours=2),
         },
         settings.secret_key,
         algorithm=settings.jwt_algorithm,

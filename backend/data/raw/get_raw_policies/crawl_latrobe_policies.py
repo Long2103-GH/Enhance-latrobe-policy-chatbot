@@ -15,12 +15,12 @@ import asyncio
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 import pandas as pd
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
+from crawl4ai import AsyncWebCrawler, CacheMode, CrawlerRunConfig
 
 # ==============================================================================
 # CONFIGURATION & CONSTANTS
@@ -68,7 +68,7 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def parse_markdown_to_sections(markdown_text: str) -> List[Dict[str, str]]:
+def parse_markdown_to_sections(markdown_text: str) -> list[dict[str, str]]:
     """Transforms raw Markdown content into structured heading-text section dicts.
     
     This maintains exact schema compatibility with downstream chunking modules
@@ -80,17 +80,17 @@ def parse_markdown_to_sections(markdown_text: str) -> List[Dict[str, str]]:
     Returns:
         List of dictionaries containing 'heading' and 'text' keys.
     """
-    sections: List[Dict[str, str]] = []
+    sections: list[dict[str, str]] = []
     
     # Split content along Markdown header markers (#, ##, ###, ####)
-    raw_blocks: List[str] = re.split(r'\n(?=#{1,4}\s)', markdown_text)
+    raw_blocks: list[str] = re.split(r'\n(?=#{1,4}\s)', markdown_text)
     
     for block in raw_blocks:
         block = block.strip()
         if not block:
             continue
             
-        lines: List[str] = block.split('\n', 1)
+        lines: list[str] = block.split('\n', 1)
         
         # Extract heading title and clean header tokens
         raw_heading: str = lines[0]
@@ -113,7 +113,7 @@ def parse_markdown_to_sections(markdown_text: str) -> List[Dict[str, str]]:
     return sections
 
 
-def load_scraped_urls(file_path: Path) -> Set[str]:
+def load_scraped_urls(file_path: Path) -> set[str]:
     """Reads existing JSONL file to retrieve set of already-processed policy URLs.
     
     Args:
@@ -122,11 +122,11 @@ def load_scraped_urls(file_path: Path) -> Set[str]:
     Returns:
         Set of unique URL strings already persisted to disk.
     """
-    scraped_urls: Set[str] = set()
+    scraped_urls: set[str] = set()
     if not file_path.exists():
         return scraped_urls
 
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, encoding='utf-8') as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -145,7 +145,9 @@ def load_scraped_urls(file_path: Path) -> Set[str]:
 # CRAWLER ENGINE CORE
 # ==============================================================================
 
-async def discover_policy_links(crawler: AsyncWebCrawler, config: CrawlerRunConfig) -> Dict[str, str]:
+async def discover_policy_links(
+    crawler: AsyncWebCrawler, config: CrawlerRunConfig
+    ) -> dict[str, str]:
     """Scrapes the master browse directory to identify all policy document targets.
     
     Args:
@@ -161,8 +163,8 @@ async def discover_policy_links(crawler: AsyncWebCrawler, config: CrawlerRunConf
     if not result.success:
         raise RuntimeError(f"Failed to fetch browse directory page: {result.error_message}")
 
-    policy_links: Dict[str, str] = {}
-    internal_links: List[Dict[str, Any]] = result.links.get("internal", [])
+    policy_links: dict[str, str] = {}
+    internal_links: list[dict[str, Any]] = result.links.get("internal", [])
 
     for link_info in internal_links:
         href: str = link_info.get("href", "")
@@ -196,14 +198,14 @@ async def process_crawling_pipeline() -> None:
     async with AsyncWebCrawler(verbose=False) as crawler:
         # Step 1: Discover links
         try:
-            links_map: Dict[str, str] = await discover_policy_links(crawler, crawler_config)
+            links_map: dict[str, str] = await discover_policy_links(crawler, crawler_config)
         except Exception as err:
             logger.error(f"Critical error during link discovery phase: {err}")
             return
 
         # Step 2: Check existing progress for crash resumption
-        scraped_urls: Set[str] = load_scraped_urls(JSONL_FILE)
-        pending_items: List[Tuple[str, str]] = [
+        scraped_urls: set[str] = load_scraped_urls(JSONL_FILE)
+        pending_items: list[tuple[str, str]] = [
             (url, title) for url, title in links_map.items() if url not in scraped_urls
         ]
 
@@ -213,7 +215,7 @@ async def process_crawling_pipeline() -> None:
             logger.info("Pipeline sync complete. No new policy documents to extract.")
             return
 
-        summary_records: List[Dict[str, Any]] = []
+        summary_records: list[dict[str, Any]] = []
 
         # Step 3: Sequential extraction loop with real-time disk streaming
         with open(JSONL_FILE, "a", encoding="utf-8") as jsonl_out:
@@ -232,13 +234,15 @@ async def process_crawling_pipeline() -> None:
                     doc_title: str = extracted_title if extracted_title else fallback_title
 
                     # Build backward-compatible sections schema
-                    sections_data: List[Dict[str, str]] = parse_markdown_to_sections(result.markdown)
+                    sections_data: list[dict[str, str]] = parse_markdown_to_sections(
+                        result.markdown
+                        )
 
                     # Build exact schema record required by downstream RAG modules
-                    record: Dict[str, Any] = {
+                    record: dict[str, Any] = {
                         'url': result.url,
                         'title': doc_title,
-                        'crawled_at': datetime.now(timezone.utc).isoformat(),
+                        'crawled_at': datetime.now(UTC).isoformat(),
                         'section_count': len(sections_data),
                         'sections': sections_data,
                         'full_text': result.markdown

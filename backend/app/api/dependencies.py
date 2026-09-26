@@ -22,7 +22,6 @@ from app.services.retrieval_service import RetrievalService
 from app.services.validation_service import ValidationService
 from app.services.vector_store import VectorStore
 
-
 # auto_error=False so we can return a proper 401 (not FastAPI's default 403)
 # when the Authorization header is missing.
 security_scheme = HTTPBearer(auto_error=False)

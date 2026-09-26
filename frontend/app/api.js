@@ -5,15 +5,18 @@
  * All backend communication goes through this module.
  */
 (function () {
-  'use strict';
+  "use strict";
 
   const CFG = window.ASK_LT_CONFIG;
 
   /** Typed error for API failures. */
   class ApiError extends Error {
-    constructor(message, { status = 0, code = 'API_ERROR', requestId = null, cause = null } = {}) {
+    constructor(
+      message,
+      { status = 0, code = "API_ERROR", requestId = null, cause = null } = {},
+    ) {
       super(message);
-      this.name = 'ApiError';
+      this.name = "ApiError";
       this.status = status;
       this.code = code;
       this.requestId = requestId;
@@ -24,40 +27,48 @@
   /** Thrown when the session is invalid/expired — callers should redirect to login. */
   class UnauthorizedError extends ApiError {
     constructor(message, opts = {}) {
-      super(message, { ...opts, status: 401, code: 'UNAUTHORIZED' });
-      this.name = 'UnauthorizedError';
+      super(message, { ...opts, status: 401, code: "UNAUTHORIZED" });
+      this.name = "UnauthorizedError";
     }
   }
 
   class RateLimitedError extends ApiError {
     constructor(message, { retryAfter = 60, ...opts } = {}) {
-      super(message, { ...opts, status: 429, code: 'RATE_LIMITED' });
-      this.name = 'RateLimitedError';
+      super(message, { ...opts, status: 429, code: "RATE_LIMITED" });
+      this.name = "RateLimitedError";
       this.retryAfter = retryAfter;
     }
   }
 
   class NetworkError extends ApiError {
     constructor(message, cause = null) {
-      super(message, { code: 'NETWORK_ERROR', cause });
-      this.name = 'NetworkError';
+      super(message, { code: "NETWORK_ERROR", cause });
+      this.name = "NetworkError";
     }
   }
 
   /** Wraps fetch with timeout + JSON parsing + error mapping. */
-  async function request(path, { method = 'GET', body = null, token = null, signal = null } = {}) {
+  async function request(
+    path,
+    { method = "GET", body = null, token = null, signal = null } = {},
+  ) {
     const url = CFG.API_BASE_URL + path;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CFG.REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      CFG.REQUEST_TIMEOUT_MS,
+    );
 
     if (signal) {
-      signal.addEventListener('abort', () => controller.abort(), { once: true });
+      signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
     }
 
-    const headers = { Accept: 'application/json' };
-    if (body !== null) headers['Content-Type'] = 'application/json';
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const headers = { Accept: "application/json" };
+    if (body !== null) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     let response;
     try {
@@ -69,23 +80,23 @@
       });
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err && err.name === 'AbortError') {
-        throw new NetworkError('The request timed out. Please try again.', err);
+      if (err && err.name === "AbortError") {
+        throw new NetworkError("The request timed out. Please try again.", err);
       }
       throw new NetworkError(CFG.MESSAGES.OFFLINE, err);
     } finally {
       clearTimeout(timeoutId);
     }
 
-    const requestId = response.headers.get('X-Request-ID') || null;
+    const requestId = response.headers.get("X-Request-ID") || null;
 
     // Try to parse JSON regardless of status — backend returns structured errors.
     let payload = null;
-    const contentType = response.headers.get('Content-Type') || '';
-    if (contentType.includes('application/json')) {
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("application/json")) {
       try {
         payload = await response.json();
-      } catch (_) {
+      } catch {
         payload = null;
       }
     }
@@ -103,17 +114,26 @@
       CFG.MESSAGES.GENERIC_ERROR;
 
     if (response.status === 401) {
-      throw new UnauthorizedError(payload?.message || CFG.MESSAGES.SESSION_EXPIRED, { requestId });
+      throw new UnauthorizedError(
+        payload?.message || CFG.MESSAGES.SESSION_EXPIRED,
+        { requestId },
+      );
     }
 
     if (response.status === 429) {
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
-      throw new RateLimitedError(CFG.MESSAGES.RATE_LIMITED, { retryAfter, requestId });
+      const retryAfter = parseInt(
+        response.headers.get("Retry-After") || "60",
+        10,
+      );
+      throw new RateLimitedError(CFG.MESSAGES.RATE_LIMITED, {
+        retryAfter,
+        requestId,
+      });
     }
 
     throw new ApiError(message, {
       status: response.status,
-      code: payload?.error || 'API_ERROR',
+      code: payload?.error || "API_ERROR",
       requestId,
     });
   }
@@ -129,8 +149,8 @@
      * @returns {Promise<{access_token: string, token_type: string}>}
      */
     async login(email, password) {
-      return request('/auth/login', {
-        method: 'POST',
+      return request("/auth/login", {
+        method: "POST",
         body: { email, password },
       });
     },
@@ -140,7 +160,7 @@
      * @returns {Promise<{id: number, email: string, full_name: string, role: string}>}
      */
     async me(token) {
-      return request('/auth/me', { token });
+      return request("/auth/me", { token });
     },
 
     /**
@@ -150,8 +170,8 @@
      * @returns {Promise<{answer, citations, grounded, confidence, escalation_required, disclaimer, request_id, conversation_id}>}
      */
     async chat(token, payload, signal = null) {
-      return request('/chat', {
-        method: 'POST',
+      return request("/chat", {
+        method: "POST",
         body: payload,
         token,
         signal,
@@ -163,7 +183,7 @@
      * @returns {Promise<{conversations: Array<{id,title,created_at,updated_at,message_count}>}>}
      */
     async listConversations(token) {
-      return request('/conversations', { token });
+      return request("/conversations", { token });
     },
 
     /**
@@ -171,8 +191,8 @@
      * @returns {Promise<{id,title,created_at,updated_at,message_count}>}
      */
     async createConversation(token, title = null) {
-      return request('/conversations', {
-        method: 'POST',
+      return request("/conversations", {
+        method: "POST",
         body: { title },
         token,
       });
@@ -192,7 +212,7 @@
      */
     async renameConversation(token, conversationId, title) {
       return request(`/conversations/${conversationId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         body: { title },
         token,
       });
@@ -203,7 +223,7 @@
      */
     async deleteConversation(token, conversationId) {
       return request(`/conversations/${conversationId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         token,
       });
     },
@@ -212,7 +232,7 @@
      * GET /health
      */
     async health() {
-      return request('/health');
+      return request("/health");
     },
   });
 })();

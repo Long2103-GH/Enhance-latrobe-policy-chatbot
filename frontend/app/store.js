@@ -14,31 +14,43 @@
  *   - activeConversationId: which conversation to reopen (user-scoped by server)
  */
 (function () {
-  'use strict';
+  "use strict";
 
   const CFG = window.ASK_LT_CONFIG;
   const KEYS = CFG.STORAGE_KEYS;
 
   function safeGet(key) {
-    try { return window.localStorage.getItem(key); }
-    catch (_) { return null; }
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
   }
 
   function safeSet(key, value) {
-    try { window.localStorage.setItem(key, value); }
-    catch (_) { /* quota / privacy mode — ignore */ }
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      /* quota / privacy mode — ignore */
+    }
   }
 
   function safeRemove(key) {
-    try { window.localStorage.removeItem(key); }
-    catch (_) { /* ignore */ }
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
   }
 
   function safeJSON(key, fallback) {
     const raw = safeGet(key);
     if (!raw) return fallback;
-    try { return JSON.parse(raw); }
-    catch (_) { return fallback; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
   }
 
   function persistKey(key, value) {
@@ -54,10 +66,10 @@
   const initialState = {
     token: safeJSON(KEYS.TOKEN, null),
     user: null,
-    authStatus: 'checking',
+    authStatus: "checking",
 
-    layout: safeJSON(KEYS.LAYOUT, 'rail'),
-    theme: safeJSON(KEYS.THEME, 'light'),
+    layout: safeJSON(KEYS.LAYOUT, "rail"),
+    theme: safeJSON(KEYS.THEME, "light"),
     sidebarCollapsed: safeJSON(KEYS.SIDEBAR_COLLAPSED, false),
 
     // Conversation list — fetched from backend, not localStorage
@@ -67,7 +79,7 @@
 
     messages: [],
     isSending: false,
-    streamBuffer: '',
+    streamBuffer: "",
     error: null,
 
     isListening: false,
@@ -81,26 +93,34 @@
 
   function notify() {
     for (const fn of subscribers) {
-      try { fn(state); } catch (err) { console.error('[store] subscriber error', err); }
+      try {
+        fn(state);
+      } catch (err) {
+        console.error("[store] subscriber error", err);
+      }
     }
   }
 
   function persistSideEffects(patch) {
-    if ('token' in patch) {
+    if ("token" in patch) {
       if (patch.token) persistKey(KEYS.TOKEN, patch.token);
       else safeRemove(KEYS.TOKEN);
     }
-    if ('layout' in patch) persistKey(KEYS.LAYOUT, patch.layout);
-    if ('theme' in patch) persistKey(KEYS.THEME, patch.theme);
-    if ('sidebarCollapsed' in patch) persistKey(KEYS.SIDEBAR_COLLAPSED, patch.sidebarCollapsed);
-    if ('activeConversationId' in patch) {
-      if (patch.activeConversationId) persistKey(KEYS.ACTIVE_CONVERSATION, patch.activeConversationId);
+    if ("layout" in patch) persistKey(KEYS.LAYOUT, patch.layout);
+    if ("theme" in patch) persistKey(KEYS.THEME, patch.theme);
+    if ("sidebarCollapsed" in patch)
+      persistKey(KEYS.SIDEBAR_COLLAPSED, patch.sidebarCollapsed);
+    if ("activeConversationId" in patch) {
+      if (patch.activeConversationId)
+        persistKey(KEYS.ACTIVE_CONVERSATION, patch.activeConversationId);
       else safeRemove(KEYS.ACTIVE_CONVERSATION);
     }
   }
 
   window.AskLTStore = Object.freeze({
-    getState() { return state; },
+    getState() {
+      return state;
+    },
 
     setState(patch) {
       let changed = false;
@@ -122,19 +142,23 @@
 
     // ─── Session ─────────────────────────────────────────────────────
     setSession(token, user) {
-      this.setState({ token, user, authStatus: token ? 'authenticated' : 'anonymous' });
+      this.setState({
+        token,
+        user,
+        authStatus: token ? "authenticated" : "anonymous",
+      });
     },
 
     clearSession() {
       this.setState({
         token: null,
         user: null,
-        authStatus: 'anonymous',
+        authStatus: "anonymous",
         conversations: [],
         activeConversationId: null,
         conversationsLoaded: false,
         messages: [],
-        streamBuffer: '',
+        streamBuffer: "",
         error: null,
       });
     },
@@ -153,7 +177,7 @@
 
     updateConversationLocal(id, patch) {
       const conversations = state.conversations.map((c) =>
-        c.id === id ? { ...c, ...patch } : c
+        c.id === id ? { ...c, ...patch } : c,
       );
       this.setState({ conversations });
     },
@@ -165,7 +189,7 @@
         conversations,
         activeConversationId: wasActive ? null : state.activeConversationId,
         messages: wasActive ? [] : state.messages,
-        streamBuffer: wasActive ? '' : state.streamBuffer,
+        streamBuffer: wasActive ? "" : state.streamBuffer,
         error: wasActive ? null : state.error,
       });
     },
@@ -174,7 +198,7 @@
       this.setState({
         activeConversationId: id,
         messages: messages.slice(),
-        streamBuffer: '',
+        streamBuffer: "",
         error: null,
       });
     },
@@ -183,7 +207,7 @@
       this.setState({
         activeConversationId: null,
         messages: [],
-        streamBuffer: '',
+        streamBuffer: "",
         error: null,
       });
     },

@@ -2,7 +2,7 @@
  * Ask La Trobe — chat controller (server-side conversations).
  */
 (function () {
-  'use strict';
+  "use strict";
 
   const CFG = window.ASK_LT_CONFIG;
   const Store = window.AskLTStore;
@@ -10,7 +10,12 @@
   const Shortcuts = window.AskLTShortcuts;
 
   class ChatController {
-    constructor({ onRender, onConversationsChanged, onUserSent, onAssistantCommitted }) {
+    constructor({
+      onRender,
+      onConversationsChanged,
+      onUserSent,
+      onAssistantCommitted,
+    }) {
       this.onRender = onRender;
       this.onConversationsChanged = onConversationsChanged || (() => {});
       this.onUserSent = onUserSent || null;
@@ -26,7 +31,7 @@
 
       const requestId = ++this._requestId;
 
-      const q = (query || '').trim();
+      const q = (query || "").trim();
       if (!q) {
         Store.setState({ error: CFG.MESSAGES.EMPTY_QUERY });
         return;
@@ -34,8 +39,9 @@
 
       const shortcut = Shortcuts ? Shortcuts.match(q) : null;
       if (shortcut) {
-        if (typeof this.onUserSent === 'function') this.onUserSent();
-        if (typeof this.onAssistantCommitted === 'function') this.onAssistantCommitted();
+        if (typeof this.onUserSent === "function") this.onUserSent();
+        if (typeof this.onAssistantCommitted === "function")
+          this.onAssistantCommitted();
         this._replyInstantly(q, shortcut);
         return;
       }
@@ -43,21 +49,21 @@
       const conversation = state.messages
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
+          role: m.role === "user" ? "user" : "assistant",
           content: m.text,
         }));
 
-      const userMessage = { role: 'user', text: q };
+      const userMessage = { role: "user", text: q };
       const messages = state.messages.concat([userMessage]);
 
-      if (typeof this.onUserSent === 'function') {
+      if (typeof this.onUserSent === "function") {
         this.onUserSent();
       }
 
       Store.setState({
         messages,
         isSending: true,
-        streamBuffer: '',
+        streamBuffer: "",
         error: null,
       });
 
@@ -77,7 +83,7 @@
         if (requestId !== this._requestId) return;
         this._abortController = null;
 
-        const fullAnswer = data.answer || '';
+        const fullAnswer = data.answer || "";
         const citations = data.citations || [];
         const returnedConversationId = data.conversation_id;
 
@@ -87,12 +93,12 @@
         ) {
           Store.setState({ activeConversationId: returnedConversationId });
 
-          const title = q.length > 42 ? q.slice(0, 42).trim() + '…' : q;
+          const title = q.length > 42 ? q.slice(0, 42).trim() + "…" : q;
 
           Store.addConversationLocal({
             id: returnedConversationId,
             title,
-            when: 'Today',
+            when: "Today",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             message_count: 2,
@@ -115,7 +121,7 @@
         this.onConversationsChanged();
       } catch (err) {
         if (requestId !== this._requestId) return;
-        if (err?.name === 'NetworkError' && err?.cause?.name === 'AbortError') {
+        if (err?.name === "NetworkError" && err?.cause?.name === "AbortError") {
           return;
         }
         this._abortController = null;
@@ -125,23 +131,23 @@
 
     _replyInstantly(query, reply) {
       const state = Store.getState();
-      const userMessage = { role: 'user', text: query };
+      const userMessage = { role: "user", text: query };
       const botMessage = {
-        role: 'assistant',
+        role: "assistant",
         text: reply,
         citations: [],
       };
 
       const messages = state.messages.concat([userMessage, botMessage]);
 
-      if (typeof this.onAssistantCommitted === 'function') {
+      if (typeof this.onAssistantCommitted === "function") {
         this.onAssistantCommitted();
       }
 
       Store.setState({
         messages,
         isSending: false,
-        streamBuffer: '',
+        streamBuffer: "",
         error: null,
       });
     }
@@ -171,7 +177,7 @@
           this._commit(fullText, citations, priorMessages, activeId, requestId);
         } else {
           Store.setState({
-            streamBuffer: parts.slice(0, i).join(''),
+            streamBuffer: parts.slice(0, i).join(""),
           });
         }
       }, CFG.STREAM_TICK_MS);
@@ -183,20 +189,20 @@
       if (requestId !== this._requestId) return;
 
       const botMessage = {
-        role: 'assistant',
+        role: "assistant",
         text,
         citations,
       };
 
       const messages = priorMessages.concat([botMessage]);
 
-      if (typeof this.onAssistantCommitted === 'function') {
+      if (typeof this.onAssistantCommitted === "function") {
         this.onAssistantCommitted();
       }
 
       Store.setState({
         messages,
-        streamBuffer: '',
+        streamBuffer: "",
         isSending: false,
         activeConversationId: activeId,
       });
@@ -217,20 +223,20 @@
 
       if (partial) {
         const botMessage = {
-          role: 'assistant',
-          text: partial + ' …[stopped]',
+          role: "assistant",
+          text: partial + " …[stopped]",
           citations: [],
         };
 
         const messages = state.messages.concat([botMessage]);
 
-        if (typeof this.onAssistantCommitted === 'function') {
+        if (typeof this.onAssistantCommitted === "function") {
           this.onAssistantCommitted();
         }
 
         Store.setState({
           messages,
-          streamBuffer: '',
+          streamBuffer: "",
           isSending: false,
         });
       } else {
@@ -243,11 +249,11 @@
       if (state.isSending) return;
 
       const targetMessage = state.messages[botIndex];
-      if (!targetMessage || targetMessage.role !== 'assistant') return;
+      if (!targetMessage || targetMessage.role !== "assistant") return;
 
       const priorUser = state.messages
         .slice(0, botIndex)
-        .filter((m) => m.role === 'user')
+        .filter((m) => m.role === "user")
         .pop();
 
       if (!priorUser) return;
@@ -260,15 +266,15 @@
       Store.setState({
         error: null,
         isSending: true,
-        streamBuffer: '',
+        streamBuffer: "",
       });
 
       const conversation = state.messages
         .slice(0, botIndex)
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m) => m.role === "user" || m.role === "assistant")
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
+          role: m.role === "user" ? "user" : "assistant",
           content: m.text,
         }));
 
@@ -288,7 +294,7 @@
         if (requestId !== this._requestId) return;
         this._abortController = null;
 
-        const fullAnswer = data.answer || '';
+        const fullAnswer = data.answer || "";
         const citations = data.citations || [];
         const priorMessages = state.messages;
         const activeId = state.activeConversationId;
@@ -297,7 +303,7 @@
         this.onConversationsChanged();
       } catch (err) {
         if (requestId !== this._requestId) return;
-        if (err?.name === 'NetworkError' && err?.cause?.name === 'AbortError') {
+        if (err?.name === "NetworkError" && err?.cause?.name === "AbortError") {
           return;
         }
         this._abortController = null;
@@ -308,7 +314,9 @@
     async copy(text) {
       try {
         await navigator.clipboard.writeText(text);
-      } catch (_) {}
+      } catch {
+        // ignore
+      }
     }
 
     _handleError(err) {
@@ -317,12 +325,12 @@
 
       let message = CFG.MESSAGES.GENERIC_ERROR;
 
-      if (err && err.name === 'UnauthorizedError') {
+      if (err && err.name === "UnauthorizedError") {
         message = CFG.MESSAGES.SESSION_EXPIRED;
         Store.clearSession();
-      } else if (err && err.name === 'RateLimitedError') {
+      } else if (err && err.name === "RateLimitedError") {
         message = `Too many requests. Please wait ${err.retryAfter} seconds and try again.`;
-      } else if (err && err.name === 'NetworkError') {
+      } else if (err && err.name === "NetworkError") {
         message = CFG.MESSAGES.OFFLINE;
       } else if (err && err.message) {
         message = err.message;
@@ -330,7 +338,7 @@
 
       Store.setState({
         isSending: false,
-        streamBuffer: '',
+        streamBuffer: "",
         error: message,
       });
     }

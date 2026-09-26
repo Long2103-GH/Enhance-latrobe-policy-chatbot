@@ -5,8 +5,6 @@
 (function () {
   "use strict";
 
-  //const CFG = window.ASK_LT_CONFIG;
-
   class Composer {
     constructor({ onSubmit, onStop, onMic }) {
       this.onSubmit = onSubmit;

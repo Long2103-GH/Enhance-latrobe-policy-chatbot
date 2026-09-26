@@ -26,9 +26,6 @@ async def test_conversations_are_user_scoped(
     student = (
         await db_session.execute(select(User).where(User.email == "student@test.edu"))
     ).scalar_one()
-    admin = (
-        await db_session.execute(select(User).where(User.email == "admin@test.edu"))
-    ).scalar_one()
 
     conv = Conversation(user_id=student.id, title="Student's private conversation")
     db_session.add(conv)

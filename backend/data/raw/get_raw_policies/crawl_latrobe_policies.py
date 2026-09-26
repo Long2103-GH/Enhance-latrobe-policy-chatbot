@@ -209,7 +209,9 @@ async def process_crawling_pipeline() -> None:
             (url, title) for url, title in links_map.items() if url not in scraped_urls
         ]
 
-        logger.info(f"Already processed: {len(scraped_urls)} | Remaining to scrape: {len(pending_items)}")
+        logger.info(
+            f"Already processed: {len(scraped_urls)} | Remaining to scrape: {len(pending_items)}"
+            )
 
         if not pending_items:
             logger.info("Pipeline sync complete. No new policy documents to extract.")

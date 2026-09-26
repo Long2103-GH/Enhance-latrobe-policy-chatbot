@@ -1,9 +1,11 @@
 """Policy chunker tests."""
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from app.rag.chunker import PolicyChunker, RawPolicy
-from dataclasses import FrozenInstanceError
+
 
 def make_policy(sections: list[dict]) -> RawPolicy:
     return RawPolicy(

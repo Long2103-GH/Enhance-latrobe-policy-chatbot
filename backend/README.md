@@ -6,7 +6,6 @@ The backend for the Policy DB Chatbot handles the Retrieval-Augmented Generation
 *   **Framework:** FastAPI (Python), Uvicorn, Pydantic
 *   **Databases:** SQLite (Development), PostgreSQL (Production), Qdrant (Vector Store)
 *   **LLM Pipeline:** DeepSeek (Primary), Gemini & Claude (Fallbacks)
-*   **Embeddings:** Hugging Face (`BAAI/bge-m3`)
 
 ## Local Setup
 1.  Copy `.env.example` to `.env` and insert your API keys (DeepSeek, Gemini, Claude).

@@ -49,9 +49,9 @@ The system combines a web-based frontend with a FastAPI backend, hybrid semantic
 
 # Project Overview
 
-The **La Trobe University Policy DB Chatbot** provides a conversational interface over a collection of La Trobe University policy and procedure documents.
+The **La Trobe University Policy DB Chatbot** provides a conversational interface over a collection of La Trobe University policy and procedure documents, with tailored interaction pathways for different user groups (students vs. staff).
 
-Instead of manually searching through large policy documents, a user can ask a natural-language question and receive a generated answer supported by relevant policy sources.
+Instead of manually searching through large policy documents, a user can ask a natural-language question and receive a generated answer explicitly supported by relevant policy sources. 
 
 The system:
 
@@ -66,13 +66,13 @@ The system:
 9. Returns the answer together with its supporting sources.
 10. Stores the conversation for the authenticated user.
 
-The application is designed around **grounded generation**, meaning the answer should be based on retrieved policy evidence rather than relying only on the language model's general knowledge.
+The application is designed around **grounded generation**, meaning the answer is strictly based on retrieved policy evidence rather than relying on the language model's general knowledge, mitigating the risk of AI hallucinations.
 
 ---
 
 # Problem Statement
 
-University policies and procedures can be lengthy, distributed across multiple documents, and difficult to search efficiently.
+University policies and procedures can be lengthy, distributed across multiple documents, and difficult to search efficiently. 
 
 Users may need answers to questions such as:
 
@@ -81,9 +81,7 @@ Users may need answers to questions such as:
 * What is the process for purchasing research equipment?
 * What should be checked when a student cannot access a Learning Portal subject site?
 
-Traditional keyword search may return documents without directly explaining the answer or identifying the most relevant passages.
-
-This project addresses the problem through a conversational RAG system that retrieves relevant policy evidence and uses that evidence to generate structured answers with citations.
+Traditional keyword search may return documents without directly explaining the answer or identifying the most relevant passages. This project addresses the problem through a conversational RAG system that retrieves relevant policy evidence and uses that evidence to generate structured answers with citations.
 
 ---
 

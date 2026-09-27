@@ -1,3 +1,19 @@
+# Backend API Summary
+
+The backend for the Policy DB Chatbot handles the Retrieval-Augmented Generation (RAG) pipeline, ensuring staff and student queries are answered using official university documentation.
+
+## Tech Stack
+*   **Framework:** FastAPI (Python), Uvicorn, Pydantic
+*   **Databases:** SQLite (Development), PostgreSQL (Production), Qdrant (Vector Store)
+*   **LLM Pipeline:** DeepSeek (Primary), Gemini & Claude (Fallbacks)
+*   **Embeddings:** Hugging Face (`BAAI/bge-m3`)
+
+## Local Setup
+1.  Copy `.env.example` to `.env` and insert your API keys (DeepSeek, Gemini, Claude).
+2.  Install dependencies: `pip install -r requirements.txt`
+3.  Start the development server: `uvicorn app.main:app --reload`
+
+---
 # La Trobe Policy DB Chatbot — Backend
 
 Production-oriented FastAPI backend for the La Trobe University Policy DB Chatbot.

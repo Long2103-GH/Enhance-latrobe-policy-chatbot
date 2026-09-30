@@ -1585,7 +1585,3 @@ This project is an academic capstone project.
 
 Unless a separate license file is added to the repository, no additional open-source redistribution rights should be assumed for the project source code or included policy data.
 
-```
-
-One important improvement from your previous version is that the README now explicitly distinguishes **required credentials from optional provider credentials**, and gives a proper **Swagger UI workflow** for login, bearer-token authorization, chat testing, conversation testing, and error testing.
-```

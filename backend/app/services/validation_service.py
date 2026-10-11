@@ -1,7 +1,7 @@
 """Grounding and response validation."""
 
 from app.core.config import get_settings
-from app.rag.citation import validate_citations
+from app.rag.citation import extract_citation_ids, validate_citations
 from app.rag.models import RetrievalResult
 
 _DISCLAIMER = (
@@ -11,6 +11,13 @@ _DISCLAIMER = (
     "requires an official interpretation or clarification, contact the "
     "relevant La Trobe University administration or policy owner."
 )
+
+# When the top fused retrieval score is below this threshold, the
+# retrieved evidence is too weak to have answered the question. In that
+# case, a citation-free LLM reply is accepted as a valid conversational
+# response rather than a grounding failure. This lets the pipeline handle
+# greetings, thanks, off-topic questions, and short inputs gracefully.
+_WEAK_EVIDENCE_THRESHOLD = 0.05
 
 
 class ValidationService:
@@ -24,8 +31,36 @@ class ValidationService:
         answer: str,
         retrieved: list[RetrievalResult],
     ) -> tuple[bool, float, list[str]]:
-        """Validate citation integrity and estimate grounding confidence."""
-        citations_valid, citation_ids = validate_citations(answer, retrieved)
+        """
+        Validate citation integrity and estimate grounding confidence.
+
+        Returns (is_valid, confidence, citation_ids).
+
+        Rules:
+          - If the answer contains citations, every citation must refer
+            to a real retrieved chunk.
+          - If the answer contains NO citations and retrieval confidence
+            is below the weak-evidence threshold, treat the reply as a
+            valid conversational response.
+          - Otherwise, the answer is a grounding failure.
+        """
+        citation_ids = extract_citation_ids(answer)
+
+        # ── Citation-free answer: decide by retrieval confidence ─────
+        if not citation_ids:
+            top_score = retrieved[0].fused_score if retrieved else 0.0
+
+            if top_score < _WEAK_EVIDENCE_THRESHOLD:
+                # Retrieval found nothing strong enough to expect a
+                # citation. Accept the conversational reply.
+                return True, 0.5, []
+
+            # Evidence was strong enough to expect citations, but the
+            # LLM didn't produce any. This IS a grounding failure.
+            return False, 0.0, []
+
+        # ── Answer has citations: run standard validation ────────────
+        citations_valid, _ = validate_citations(answer, retrieved)
 
         if not citations_valid:
             return False, 0.0, citation_ids

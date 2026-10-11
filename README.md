@@ -137,7 +137,7 @@ The frontend is a lightweight vanilla HTML/CSS/JavaScript application with:
 * Sanitized HTML output.
 * Citation cards linking to policy sources.
 * Settings panel.
-* Non-question shortcut responses for common greetings, acknowledgements, and help requests.
+* Conversational handling of natural responses.
 
 ## Backend Reliability and Security
 
@@ -392,6 +392,7 @@ Some directories and files are generated locally or intentionally ignored by Git
 │   │   │   ├── auth_service.py                  # Authentication business logic
 │   │   │   ├── conversation_service.py          # Conversation management
 │   │   │   ├── embedding_service.py             # Embedding generation
+│   │   │   ├── embedding_service_local.py       # Local sentence-transformers embedding backend
 │   │   │   ├── generation_service.py            # LLM generation orchestration
 │   │   │   ├── ingestion_service.py             # Policy ingestion pipeline
 │   │   │   ├── lexical_store.py                 # SQLite FTS5 retrieval
@@ -474,7 +475,6 @@ Some directories and files are generated locally or intentionally ignored by Git
 │   │   ├── main.js                             # Frontend bootstrap and render loop
 │   │   ├── markdown.js                         # Markdown and citation rendering
 │   │   ├── settings.js                         # Settings panel
-│   │   ├── shortcuts.js                        # Non-question shortcut matching
 │   │   ├── store.js                            # Frontend application state
 │   │   ├── theme.js                            # Theme management
 │   │   └── thread.js                           # Chat thread rendering
@@ -577,29 +577,15 @@ The exact variable name should match the `ANTHROPIC_*` entry provided in `backen
 
 ---
 
-## 4. Hugging Face Token — required for embedding generation
+## 4. Hugging Face Token — optional (not required for inference)
 
-The project uses:
+The project uses BAAI/bge-m3 for embeddings, running locally via ```sentence-transformers```. The model weights are downloaded once from the public Hugging Face model hub (~2.3 GB) and cached on disk. The download is free and does not require a token.
 
-```text
-BAAI/bge-m3
-```
+Set ```HF_TOKEN``` in ```backend/.env``` only if you want to avoid anonymous download rate limits. Leave it empty if you don't have one.
 
-for embeddings.
+No Inference API is used at query time. All embeddings run offline on the local CPU.
 
-A Hugging Face token may be required by the configured embedding service/model access.
 
-Configure:
-
-```text
-HF_TOKEN
-```
-
-in:
-
-```text
-backend/.env
-```
 
 The embedding configuration uses a **1024-dimensional** vector representation.
 

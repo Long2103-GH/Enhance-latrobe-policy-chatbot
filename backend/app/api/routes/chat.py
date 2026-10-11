@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user, get_rag_service
 from app.auth.base import CurrentUser
 from app.core.config import get_settings
-from app.core.exceptions import ValidationError
+from app.core.exceptions import GroundingError, ValidationError
 from app.core.rate_limit import limiter
 from app.core.security_filters import validate_input
 from app.db.database import get_db
@@ -110,6 +110,40 @@ async def chat(
 
     except ValidationError:
         raise
+
+    except GroundingError as exc:
+        # The LLM produced something that couldn't be grounded in the
+        # retrieved evidence — this is a legitimate, expected outcome for
+        # weak or ambiguous queries. Return a clean, honest message rather
+        # than a system-error fallback.
+        elapsed_ms = (time.perf_counter() - started) * 1000
+
+        logger.warning(
+            "Chat grounding failure [request_id=%s] after %.1f ms: %s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+
+        return ChatResponse(
+            answer=(
+                "I couldn't find enough policy evidence to answer that "
+                "reliably. Try rephrasing your question — for example, be "
+                "more specific about the policy area (leave, enrolment, "
+                "assessment, fees). Or contact the relevant La Trobe office "
+                "directly for guidance."
+            ),
+            citations=[],
+            grounded=False,
+            confidence=0.0,
+            escalation_required=True,
+            disclaimer=(
+                "This response is not grounded in the retrieved policy "
+                "documents. It is a fallback, not an answer."
+            ),
+            request_id=request_id,
+            conversation_id=payload.conversation_id,
+        )
 
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - started) * 1000

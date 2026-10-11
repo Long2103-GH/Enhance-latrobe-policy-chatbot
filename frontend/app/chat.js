@@ -58,6 +58,12 @@
       const userMessage = { role: 'user', text: q };
       const messages = state.messages.concat([userMessage]);
 
+      // Notify the view BEFORE the state change so the upcoming render
+      // already knows where to scroll.
+      if (typeof this.onUserSent === 'function') {
+        this.onUserSent();
+      }
+
       // Show the user's message immediately.
       Store.setState({
         messages,
@@ -66,11 +72,7 @@
       });
       this.onRender();
 
-      // Notify the view so it can scroll the new user message into view.
-      if (typeof this.onUserSent === 'function') {
-        this.onUserSent();
-      }
-
+      
       try {
         this._abortController = new AbortController();
 
@@ -153,18 +155,23 @@
 
       const messages = priorMessages.concat([botMessage]);
 
+
+      // Notify the view BEFORE the state change so the upcoming render
+      // already knows where to scroll.
+      if (typeof this.onAssistantCommitted === 'function') {
+        this.onAssistantCommitted();
+      }
+
+
+
       Store.setState({
         messages,
         isSending: false,
         activeConversationId: activeId,
       });
 
-      // Notify the view so it can scroll the new answer into view.
-      if (typeof this.onAssistantCommitted === 'function') {
-        this.onAssistantCommitted();
-      }
-
       this.onRender();
+    
     }
 
     // ─── Stop ────────────────────────────────────────────────────────

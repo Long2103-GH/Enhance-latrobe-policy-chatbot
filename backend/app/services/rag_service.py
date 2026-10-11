@@ -1,6 +1,7 @@
 """End-to-end RAG orchestration."""
 
 import logging
+import re
 from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,135 @@ dev_log = debug_logger(__name__)
 # is truly absent. If the LLM returns this, we treat it as a VALID response
 # (not a grounding failure) and return it directly to the user.
 FALLBACK_MARKER = "I couldn't find this information in the retrieved policy sections"
+
+
+# ==============================================================
+# commented the below block to remove the hardcoded greetings answers
+# ==============================================================
+
+# # ---------------------------------------------------------------------------
+# # Content-free query detection
+# # ---------------------------------------------------------------------------
+# # A "content token" is a lowercase alphanumeric word of 3+ characters that
+# # is NOT in the function-word set below. Queries that have zero content
+# # tokens (like "hi", "thanks", "bye") cannot be answered from policy
+# # evidence — they should short-circuit to a friendly reply without
+# # burning an LLM call or triggering a grounding failure.
+# #
+# # The function-word list is deliberately conservative. It only contains
+# # words that cannot carry policy meaning. When in doubt, a word is NOT in
+# # the list, so its presence marks the query as contentful and lets it
+# # through to the RAG pipeline. A false positive (greeting sent to RAG) is
+# # harmless; a false negative (real question short-circuited) is not.
+# _CONTENT_TOKEN_RE = re.compile(r"[a-z0-9]{3,}")
+# _FUNCTION_WORDS: frozenset[str] = frozenset(
+#     {
+#         # Common English function words
+#         "the",
+#         "and",
+#         "are",
+#         "but",
+#         "for",
+#         "how",
+#         "its",
+#         "not",
+#         "you",
+#         "your",
+#         "with",
+#         "what",
+#         "when",
+#         "where",
+#         "which",
+#         "who",
+#         "why",
+#         "will",
+#         "would",
+#         "could",
+#         "should",
+#         "there",
+#         "their",
+#         "them",
+#         "they",
+#         "this",
+#         "that",
+#         "these",
+#         "those",
+#         "have",
+#         "has",
+#         "had",
+#         "was",
+#         "were",
+#         "been",
+#         "being",
+#         "into",
+#         "from",
+#         "about",
+#         "over",
+#         "under",
+#         "just",
+#         "some",
+#         "any",
+#         "all",
+#         "one",
+#         "two",
+#         "get",
+#         "got",
+#         "let",
+#         "put",
+#         "say",
+#         "see",
+#         "way",
+#         "use",
+#         "ask",
+#         # Greetings
+#         "hey",
+#         "heya",
+#         "hi",
+#         "hii",
+#         "hiya",
+#         "hello",
+#         "helo",
+#         "yo",
+#         "sup",
+#         "greetings",
+#         "howdy",
+#         "gday",
+#         # Thanks
+#         "thanks",
+#         "thank",
+#         "thankyou",
+#         "thx",
+#         "ty",
+#         "ta",
+#         "cheers",
+#         # Goodbyes
+#         "bye",
+#         "byee",
+#         "goodbye",
+#         "cya",
+#         "seeya",
+#         "farewell",
+#         # Acknowledgements
+#         "ok",
+#         "okay",
+#         "yep",
+#         "yeah",
+#         "yup",
+#         "nope",
+#         "nah",
+#         "cool",
+#         "nice",
+#         "sure",
+#         "right",
+#         "fine",
+#     }
+# )
+
+
+# def _has_content_tokens(query: str) -> bool:
+#     """Return True if the query contains at least one meaningful word."""
+#     tokens = _CONTENT_TOKEN_RE.findall((query or "").lower())
+#     return any(t not in _FUNCTION_WORDS for t in tokens)
 
 
 class RAGService:
@@ -58,6 +188,57 @@ class RAGService:
         conversation_id: int | None = None,
     ) -> ChatResponse:
         """Generate a safe, cited answer."""
+
+        # ==============================================================
+        # commented the below block to remove the hardcoded greetings answers
+        # ==============================================================
+
+        # # ── STEP -1: Content-free query guard ────────────────────────
+        # # Greetings, thanks, goodbyes and similar have no content tokens
+        # # and cannot be answered from policy evidence. Short-circuit them
+        # # here so they don't burn tokens, produce no citations, and
+        # # trigger a GroundingError further down the pipeline.
+        # if not _has_content_tokens(query):
+        #     answer = (
+        #         "Hi! I'm here to help with La Trobe University policies, "
+        #         "procedures, and staff documentation. What would you like "
+        #         'to know? For example: "What is the special consideration '
+        #         'process?" or "How do I apply for a short extension?"'
+        #     )
+
+        #     await self.audit_service.record(
+        #         session,
+        #         request_id=request_id,
+        #         event_type="RAG_TRIVIAL_QUERY",
+        #         user_id=user_id,
+        #         query=query,
+        #         retrieved_chunk_count=0,
+        #         retrieval_score=None,
+        #         grounding_score=1.0,
+        #         success=True,
+        #     )
+
+        #     saved_conversation_id = await self._persist_exchange(
+        #         session,
+        #         conversation_id=conversation_id,
+        #         user_id=user_id,
+        #         user_content=query,
+        #         assistant_content=answer,
+        #         assistant_citations=[],
+        #         request_id=request_id,
+        #     )
+
+        #     return ChatResponse(
+        #         answer=answer,
+        #         citations=[],
+        #         grounded=False,
+        #         confidence=1.0,
+        #         escalation_required=False,
+        #         disclaimer=self.validation_service.disclaimer(),
+        #         request_id=request_id,
+        #         conversation_id=saved_conversation_id,
+        #     )
+
         try:
             # ── STEP 0: Query rewriting for conversational follow-ups ─
             search_query = query

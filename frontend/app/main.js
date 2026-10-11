@@ -1379,8 +1379,14 @@
         composer.focus();
       }
 
-      // Apply scroll AFTER the fresh DOM has painted.
-      setTimeout(() => applyScrollIntent(previousScrollTop), 0);
+      // Apply scroll AFTER the fresh DOM has painted AND after the
+      // browser has completed at least one layout pass. requestAnimationFrame
+      // called twice ensures the new message elements have non-zero
+      // geometry before scrollIntoView runs.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => applyScrollIntent(previousScrollTop));
+      });
+      
     } else if (state.authStatus === 'checking') {
       return;
     } else {

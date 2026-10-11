@@ -45,6 +45,7 @@
   //   'assistant' → scroll to the top of the newest assistant message
   //   null        → restore the scroll position captured before the render
   let pendingScrollIntent = null;
+  let lastKnownScrollTop = 0;
 
   const chatController = new Chat({
     onRender: () => render(),
@@ -1226,30 +1227,48 @@
           target = node;
           break;
         }
-        if (intent === 'assistant' && isBot && !node.classList.contains('message--loading')) {
+        if (
+          intent === 'assistant' &&
+          isBot &&
+          !node.classList.contains('message--loading')
+        ) {
           target = node;
           break;
         }
       }
 
       if (target) {
+        // Compute the target's position relative to the scroll container
+        // and set scrollTop directly. scrollIntoView can be defeated by
+        // the container's own scrolling behaviour and lands at 0.
+        const containerRect = el.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const offsetWithinScroll =
+          targetRect.top - containerRect.top + el.scrollTop;
+
+        const MARGIN = 12;
+        const newTop = Math.max(0, offsetWithinScroll - MARGIN);
+
         const prefersReduced = window.matchMedia(
           '(prefers-reduced-motion: reduce)',
         ).matches;
-        target.scrollIntoView({
-          block: 'start',
-          behavior: prefersReduced ? 'auto' : 'smooth',
-        });
+
+        if (prefersReduced) {
+          el.scrollTop = newTop;
+        } else {
+          el.scrollTo({ top: newTop, behavior: 'smooth' });
+        }
         return;
       }
     }
 
-    // No intent — restore the pre-render scroll position so incidental
-    // re-renders (theme toggle, sidebar toggle) don't jump.
+    // No intent — restore the pre-render scroll position.
     if (typeof previousScrollTop === 'number') {
       el.scrollTop = previousScrollTop;
     }
   }
+  
+  
 
   // ================================================================
   // ACTIONS
@@ -1364,7 +1383,8 @@
 
     // Snapshot scroll position before wiping the DOM.
     const scrollBefore = document.getElementById('chat-scroll');
-    const previousScrollTop = scrollBefore ? scrollBefore.scrollTop : null;
+    if (scrollBefore) lastKnownScrollTop = scrollBefore.scrollTop;
+    const previousScrollTop = lastKnownScrollTop;
 
     root.innerHTML = '';
     const state = Store.getState();
@@ -1379,14 +1399,54 @@
         composer.focus();
       }
 
-      // Apply scroll AFTER the fresh DOM has painted AND after the
-      // browser has completed at least one layout pass. requestAnimationFrame
-      // called twice ensures the new message elements have non-zero
-      // geometry before scrollIntoView runs.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => applyScrollIntent(previousScrollTop));
-      });
-      
+      // Set scrollTop directly to the newest message.
+      //
+      // We deliberately do NOT use applyScrollIntent here. In this codebase,
+      // the scroll container is rebuilt from scratch on every render
+      // (root.innerHTML = ''). Any scroll applied before the rebuild is lost,
+      // and any scroll applied after needs to survive the composer re-focus
+      // and the async conversation-list refresh that fires 100–300 ms later.
+      //
+      // Setting scrollTop inside a setTimeout(100ms) window is the most
+      // reliable: by then the DOM is built, the composer has been focused,
+      // and any early scroll resets have already happened.
+      setTimeout(() => {
+        const el = document.getElementById('chat-scroll');
+        if (!el) return;
+
+        const intent = pendingScrollIntent;
+        pendingScrollIntent = null;
+
+        const msgs = el.querySelectorAll('[data-message-index]');
+        if (!msgs.length) return;
+
+        let target = null;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const node = msgs[i];
+          const isUser = node.classList.contains('message--user');
+          const isBot =
+            node.classList.contains('message--bot') &&
+            !node.classList.contains('message--loading');
+          if (intent === 'user' && isUser) {
+            target = node;
+            break;
+          }
+          if (intent === 'assistant' && isBot) {
+            target = node;
+            break;
+          }
+        }
+
+        if (target) {
+          const containerTop = el.getBoundingClientRect().top;
+          const targetTop = target.getBoundingClientRect().top;
+          el.scrollTop = el.scrollTop + (targetTop - containerTop) - 12;
+        }
+      }, 100);
+
+
+
+
     } else if (state.authStatus === 'checking') {
       return;
     } else {

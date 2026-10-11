@@ -1323,7 +1323,6 @@
     // Snapshot scroll position before wiping the DOM.
     const scrollBefore = document.getElementById("chat-scroll");
     if (scrollBefore) lastKnownScrollTop = scrollBefore.scrollTop;
-    const previousScrollTop = lastKnownScrollTop;
 
     root.innerHTML = "";
     const state = Store.getState();

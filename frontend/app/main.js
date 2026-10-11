@@ -183,7 +183,7 @@
         <h1>Ask La&nbsp;Trobe</h1>
         <p>A conversational front door to internal policy, procedure and staff documentation. Sign in with your university account to begin.</p>
       </div>
-      <p class="login__footnote">Student capstone prototype · CSE3PIT · Not an official university service</p>
+      <p class="login__footnote">Capstone Prototype · CSE3CAP · Not an official university service</p>
     `;
     wrap.appendChild(brand);
 

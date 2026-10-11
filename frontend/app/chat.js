@@ -12,7 +12,7 @@
  * There are no hardcoded shortcut replies.
  */
 (function () {
-  'use strict';
+  "use strict";
 
   const CFG = window.ASK_LT_CONFIG;
   const Store = window.AskLTStore;
@@ -40,7 +40,7 @@
 
       const requestId = ++this._requestId;
 
-      const q = (query || '').trim();
+      const q = (query || "").trim();
       if (!q) {
         Store.setState({ error: CFG.MESSAGES.EMPTY_QUERY });
         this.onRender();
@@ -51,16 +51,16 @@
       const conversation = state.messages
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
+          role: m.role === "user" ? "user" : "assistant",
           content: m.text,
         }));
 
-      const userMessage = { role: 'user', text: q };
+      const userMessage = { role: "user", text: q };
       const messages = state.messages.concat([userMessage]);
 
       // Notify the view BEFORE the state change so the upcoming render
       // already knows where to scroll.
-      if (typeof this.onUserSent === 'function') {
+      if (typeof this.onUserSent === "function") {
         this.onUserSent();
       }
 
@@ -72,7 +72,6 @@
       });
       this.onRender();
 
-      
       try {
         this._abortController = new AbortController();
 
@@ -89,7 +88,7 @@
         if (requestId !== this._requestId) return;
         this._abortController = null;
 
-        const fullAnswer = data.answer || '';
+        const fullAnswer = data.answer || "";
         const citations = data.citations || [];
         const returnedConversationId = data.conversation_id;
 
@@ -100,12 +99,12 @@
         ) {
           Store.setState({ activeConversationId: returnedConversationId });
 
-          const title = q.length > 42 ? q.slice(0, 42).trim() + '…' : q;
+          const title = q.length > 42 ? q.slice(0, 42).trim() + "…" : q;
 
           Store.addConversationLocal({
             id: returnedConversationId,
             title,
-            when: 'Today',
+            when: "Today",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             message_count: 2,
@@ -131,9 +130,9 @@
 
         if (
           err &&
-          err.name === 'NetworkError' &&
+          err.name === "NetworkError" &&
           err.cause &&
-          err.cause.name === 'AbortError'
+          err.cause.name === "AbortError"
         ) {
           return;
         }
@@ -148,21 +147,18 @@
       if (requestId !== this._requestId) return;
 
       const botMessage = {
-        role: 'assistant',
+        role: "assistant",
         text,
         citations,
       };
 
       const messages = priorMessages.concat([botMessage]);
 
-
       // Notify the view BEFORE the state change so the upcoming render
       // already knows where to scroll.
-      if (typeof this.onAssistantCommitted === 'function') {
+      if (typeof this.onAssistantCommitted === "function") {
         this.onAssistantCommitted();
       }
-
-
 
       Store.setState({
         messages,
@@ -171,7 +167,6 @@
       });
 
       this.onRender();
-    
     }
 
     // ─── Stop ────────────────────────────────────────────────────────
@@ -193,11 +188,11 @@
       if (state.isSending) return;
 
       const targetMessage = state.messages[botIndex];
-      if (!targetMessage || targetMessage.role !== 'assistant') return;
+      if (!targetMessage || targetMessage.role !== "assistant") return;
 
       const priorUser = state.messages
         .slice(0, botIndex)
-        .filter((m) => m.role === 'user')
+        .filter((m) => m.role === "user")
         .pop();
 
       if (!priorUser) return;
@@ -212,10 +207,10 @@
 
       const conversation = state.messages
         .slice(0, botIndex)
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m) => m.role === "user" || m.role === "assistant")
         .slice(-CFG.MAX_CONVERSATION_TURNS)
         .map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
+          role: m.role === "user" ? "user" : "assistant",
           content: m.text,
         }));
 
@@ -235,18 +230,12 @@
         if (requestId !== this._requestId) return;
         this._abortController = null;
 
-        const fullAnswer = data.answer || '';
+        const fullAnswer = data.answer || "";
         const citations = data.citations || [];
         const priorMessages = state.messages;
         const activeId = state.activeConversationId;
 
-        this._commit(
-          fullAnswer,
-          citations,
-          priorMessages,
-          activeId,
-          requestId,
-        );
+        this._commit(fullAnswer, citations, priorMessages, activeId, requestId);
 
         this.onConversationsChanged();
       } catch (err) {
@@ -254,9 +243,9 @@
 
         if (
           err &&
-          err.name === 'NetworkError' &&
+          err.name === "NetworkError" &&
           err.cause &&
-          err.cause.name === 'AbortError'
+          err.cause.name === "AbortError"
         ) {
           return;
         }
@@ -269,7 +258,7 @@
     async copy(text) {
       try {
         await navigator.clipboard.writeText(text);
-      } catch (_) {
+      } catch {
         /* clipboard blocked — no-op */
       }
     }
@@ -277,12 +266,12 @@
     _handleError(err) {
       let message = CFG.MESSAGES.GENERIC_ERROR;
 
-      if (err && err.name === 'UnauthorizedError') {
+      if (err && err.name === "UnauthorizedError") {
         message = CFG.MESSAGES.SESSION_EXPIRED;
         Store.clearSession();
-      } else if (err && err.name === 'RateLimitedError') {
+      } else if (err && err.name === "RateLimitedError") {
         message = `Too many requests. Please wait ${err.retryAfter} seconds and try again.`;
-      } else if (err && err.name === 'NetworkError') {
+      } else if (err && err.name === "NetworkError") {
         message = CFG.MESSAGES.OFFLINE;
       } else if (err && err.message) {
         message = err.message;

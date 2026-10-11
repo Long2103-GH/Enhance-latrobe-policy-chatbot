@@ -146,11 +146,23 @@ class RetrievalService:
             query_vector,
             limit=candidate_limit,
         )
-        lexical_results = await self.lexical_store.search(
-            session,
-            query,
-            limit=max(self.settings.lexical_top_k, 20),
-        )
+
+        lexical_results: list[RetrievalResult] = []
+        try:
+            lexical_results = await self.lexical_store.search(
+                session,
+                query,
+                limit=max(self.settings.lexical_top_k, 20),
+            )
+        except Exception:
+            logger.warning(
+                "Lexical search failed for query %r. Falling back to "
+                "vector-only retrieval.",
+                query[:80],
+                exc_info=True,
+            )
+
+            
 
         return reciprocal_rank_fusion(
             vector_results,

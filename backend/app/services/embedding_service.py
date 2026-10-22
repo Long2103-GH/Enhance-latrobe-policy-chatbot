@@ -30,30 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    """Embedding service with local inference (HF API fallback)."""
+    """Embedding service with HF API first, local inference as fallback."""
 
     def __init__(self) -> None:
         settings = get_settings()
         self.dimension = settings.embedding_dimension
         self.model_name = settings.embedding_model
 
+        self._api_client = None          # built lazily on first API call
         self._local: LocalEmbeddingService | None = None
-        self._api_client = None  # only built if the local model fails
-
-        try:
-            self._local = LocalEmbeddingService()
-            logger.info(
-                "EmbeddingService: using LOCAL model %r (dim=%d).",
-                settings.embedding_model,
-                settings.embedding_dimension,
-            )
-        except Exception as exc:
-            logger.warning(
-                "EmbeddingService: local model unavailable (%s). "
-                "Falling back to Hugging Face Inference API.",
-                exc,
-            )
-            self._local = None
+        self._local_failed = False       # avoid retrying a broken local load
 
     # ─── Public API ────────────────────────────────────────────────
     async def embed(self, text: str) -> list[float]:
@@ -63,10 +49,14 @@ class EmbeddingService:
                 details={"operation": "embed"},
             )
 
-        if self._local is not None:
-            return await self._local.embed(text)
-
-        return await self._api_embed(text)
+        try:
+            return await self._api_embed(text)
+        except RetrievalError as api_exc:
+            logger.warning(
+                "EmbeddingService: API embed failed (%s). Trying local fallback.",
+                api_exc,
+            )
+            return await self._local_embed(text, cause=api_exc)
 
     async def embed_many(
         self,
@@ -77,12 +67,82 @@ class EmbeddingService:
         if not texts:
             return []
 
+        try:
+            return await self._api_embed_many(texts, batch_size=batch_size)
+        except RetrievalError as api_exc:
+            logger.warning(
+                "EmbeddingService: API embed_many failed (%s). Trying local fallback.",
+                api_exc,
+            )
+            return await self._local_embed_many(
+                texts, batch_size=batch_size, cause=api_exc
+            )
+
+    # ─── Local fallback (lazy init) ────────────────────────────────
+    def _get_local(self) -> LocalEmbeddingService:
         if self._local is not None:
-            return await self._local.embed_many(texts, batch_size=batch_size)
+            return self._local
+        if self._local_failed:
+            raise RetrievalError(
+                "Local embedding model previously failed to load.",
+                details={"operation": "local_init"},
+            )
 
-        return await self._api_embed_many(texts, batch_size=batch_size)
+        try:
+            self._local = LocalEmbeddingService()
+            logger.info(
+                "EmbeddingService: LOCAL fallback loaded (model=%r, dim=%d).",
+                self.model_name,
+                self.dimension,
+            )
+            return self._local
+        except Exception as exc:
+            self._local_failed = True
+            logger.exception("EmbeddingService: local model failed to load.")
+            raise RetrievalError(
+                "Local embedding model could not be loaded.",
+                details={"operation": "local_init", "error_type": type(exc).__name__},
+            ) from exc
 
-    # ─── Lazy HF API fallback (unchanged behaviour) ────────────────
+    async def _local_embed(self, text: str, cause: Exception) -> list[float]:
+        try:
+            local = self._get_local()
+            return await local.embed(text)
+        except RetrievalError:
+            raise
+        except Exception as exc:
+            raise RetrievalError(
+                "Both Hugging Face API and local embedding failed for single text.",
+                details={
+                    "operation": "embed",
+                    "api_error": type(cause).__name__,
+                    "local_error": type(exc).__name__,
+                },
+            ) from exc
+
+    async def _local_embed_many(
+        self,
+        texts: list[str],
+        batch_size: int,
+        cause: Exception,
+    ) -> list[list[float]]:
+        try:
+            local = self._get_local()
+            return await local.embed_many(texts, batch_size=batch_size)
+        except RetrievalError:
+            raise
+        except Exception as exc:
+            raise RetrievalError(
+                "Both Hugging Face API and local embedding failed for batch.",
+                details={
+                    "operation": "embed_many",
+                    "batch_size": len(texts),
+                    "api_error": type(cause).__name__,
+                    "local_error": type(exc).__name__,
+                },
+            ) from exc
+
+    # ─── HF API (lazy client) ──────────────────────────────────────
     def _get_api_client(self):
         if self._api_client is not None:
             return self._api_client
@@ -91,6 +151,7 @@ class EmbeddingService:
 
         settings = get_settings()
         self._api_client = AsyncInferenceClient(
+            provider="hf-inference",
             model=settings.embedding_model,
             token=settings.hf_token or None,
         )
@@ -99,11 +160,18 @@ class EmbeddingService:
     async def _api_embed(self, text: str) -> list[float]:
         try:
             response = await self._get_api_client().feature_extraction(text)
-            vector = (
-                response[0]
-                if (response and isinstance(response[0], list))
-                else response
-            )
+
+            # HF có thể trả về: list[float], list[list[float]], hoặc np.ndarray.
+            # Không dùng `and`/`if response` trực tiếp vì numpy array
+            # không hỗ trợ truth value.
+            if hasattr(response, "tolist"):
+                response = response.tolist()
+
+            if isinstance(response, list) and response and isinstance(response[0], list):
+                vector = response[0]
+            else:
+                vector = response
+
             return [float(x) for x in vector]
         except Exception as exc:
             logger.exception("Hugging Face API error during single embedding.")
@@ -139,7 +207,9 @@ class EmbeddingService:
                     },
                 ) from exc
 
-            for item in response:
+            if hasattr(response, "tolist"): 
+                response = response.tolist()
+            for item in response:   
                 if isinstance(item, list) and item and isinstance(item[0], list):
                     vectors.append([float(x) for x in item[0]])
                 else:

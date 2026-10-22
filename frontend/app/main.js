@@ -45,6 +45,7 @@
   //   'assistant' → scroll to the top of the newest assistant message
   //   null        → restore the scroll position captured before the render
   let pendingScrollIntent = null;
+  // eslint-disable-next-line no-unused-vars
   let lastKnownScrollTop = 0;
 
   const chatController = new Chat({
